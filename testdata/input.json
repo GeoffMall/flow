@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "user": {
+    "name": "Bob",
+    "email": "fake@fake.com",
+    "aliases": ["Bobby", "Rob"]
+  }
+}
