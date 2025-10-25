@@ -37,6 +37,7 @@ func New(opts Options) *Printer {
 	if opts.ToFormat == "yaml" {
 		format = "yaml"
 	}
+
 	return &Printer{
 		w:      w,
 		format: format,
@@ -58,6 +59,7 @@ func (p *Printer) Write(v any) error {
 
 func (p *Printer) writeJSON(v any) error {
 	var b []byte
+
 	var err error
 
 	if p.opt.Compact {
@@ -71,6 +73,7 @@ func (p *Printer) writeJSON(v any) error {
 		enc := json.NewEncoder(&buf)
 		enc.SetEscapeHTML(false)
 		enc.SetIndent("", "  ")
+
 		if err := enc.Encode(v); err != nil {
 			return fmt.Errorf("json encode: %w", err)
 		}
@@ -105,5 +108,6 @@ func (p *Printer) writeYAML(v any) error {
 	if err := enc.Encode(v); err != nil {
 		return fmt.Errorf("yaml encode: %w", err)
 	}
+
 	return nil
 }

@@ -1,0 +1,17 @@
+version: "2"
+linters:
+  default: fast
+  disable:
+    - depguard
+    - godot
+    - lll
+    - mnd
+    - nlreturn
+    - testpackage
+    - wsl
+formatters:
+  enable:
+    - gofmt
+    - goimports
+run:
+  timeout: 5m

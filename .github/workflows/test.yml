@@ -1,0 +1,61 @@
+name: test-and-coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.25.x"]
+    name: Go ${{ matrix.go }} tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: Run unit tests with coverage
+        run: |
+          set -euo pipefail
+          # Run with race detector where supported
+          go test ./... -race -covermode=atomic -coverprofile=coverage.out
+          go tool cover -func=coverage.out | tee coverage.txt
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Print coverage summary
+        run: |
+          total_line=$(grep -E '^total:' coverage.txt)
+          total_pct=$(echo "$total_line" | awk '{print $3}')
+          {
+            echo "## Coverage Summary"
+            echo ""
+            echo "\`\`\`"
+            cat coverage.txt
+            echo "\`\`\`"
+            echo ""
+            echo "**Total:** $total_pct"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.go }}
+          path: |
+            coverage.out
+            coverage.html
+            coverage.txt

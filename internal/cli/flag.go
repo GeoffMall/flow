@@ -27,7 +27,9 @@ func ParseFlags() *Flags {
 
 	// Define repeatable flags by creating custom flag slices
 	var pickPaths multiStringFlag
+
 	var setPairs multiStringFlag
+
 	var deletePaths multiStringFlag
 
 	flag.Var(&pickPaths, "pick", "Pick a key or path from the input (can be used multiple times)")
@@ -57,7 +59,7 @@ func ParseFlags() *Flags {
 
 	// Additional validation can be added here if needed
 	if f.ToFormat != "" && f.ToFormat != "json" && f.ToFormat != "yaml" {
-		printLine("Error: invalid format '%s' for --to flag. Supported formats are 'json' and 'yaml'.\n", f.ToFormat)
+		printLinef("Error: invalid format '%s' for --to flag. Supported formats are 'json' and 'yaml'.\n", f.ToFormat)
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -73,19 +75,20 @@ func (m *multiStringFlag) String() string {
 
 func (m *multiStringFlag) Set(value string) error {
 	*m = append(*m, value)
+
 	return nil
 }
 
 func usage() {
 	// Custom usage message can be defined here
-	printLine("Usage: flow [flags]\n\n")
-	printLine("Examples:\n")
-	printLine("  cat data.json | flow --pick user.name --pick user.id\n")
-	printLine("  flow config.yaml --set server.port=8080 --delete debug --to json\n")
-	printLine("\nFlags:\n")
+	printLinef("Usage: flow [flags]\n\n")
+	printLinef("Examples:\n")
+	printLinef("  cat data.json | flow --pick user.name --pick user.id\n")
+	printLinef("  flow config.yaml --set server.port=8080 --delete debug --to json\n")
+	printLinef("\nFlags:\n")
 	flag.PrintDefaults()
 }
 
-func printLine(format string, a ...any) {
+func printLinef(format string, a ...any) {
 	_, _ = fmt.Fprintf(os.Stderr, format, a...)
 }

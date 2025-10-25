@@ -26,21 +26,28 @@ type Assignment struct {
 
 func NewSetFromPairs(pairs []string) (*Set, error) {
 	as := make([]Assignment, 0, len(pairs))
+
 	for _, p := range pairs {
 		path, raw, ok := splitOnce(p, '=')
 		if !ok {
 			return nil, fmt.Errorf("invalid --set %q (expected path=value)", p)
 		}
+
 		path = strings.TrimSpace(path)
+
 		if path == "" {
 			return nil, fmt.Errorf("invalid --set %q: empty path", p)
 		}
+
 		val, err := parseJSONish(strings.TrimSpace(raw))
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid --set %q: %w", p, err)
 		}
+
 		as = append(as, Assignment{Path: path, Value: val})
 	}
+
 	return &Set{Assignments: as}, nil
 }
 
@@ -49,6 +56,7 @@ func (s *Set) Description() string {
 	for _, a := range s.Assignments {
 		parts = append(parts, a.Path)
 	}
+
 	return "set(" + strings.Join(parts, ", ") + ")"
 }
 
@@ -67,71 +75,104 @@ func (s *Set) Apply(v any) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid path %q: %w", a.Path, err)
 		}
+
 		setAtPathOverwrite(root, segs, a.Value)
 	}
+
 	return root, nil
 }
-
-// ----------------------------- Setting logic -----------------------------
 
 // setAtPathOverwrite walks/creates maps/slices to place val at segs.
 // If it encounters an incompatible existing type, it OVERWRITES it with the needed container.
 func setAtPathOverwrite(root map[string]any, segs []segment, val any) {
 	cur := root
+
 	for i, s := range segs {
 		isLast := i == len(segs)-1
 
-		// Ensure a child slot for s.key
-		child, exists := cur[s.key]
-
-		// If no index: it's a straight object chain
 		if s.idx == nil {
+			cur = handleMapSegmentOverwrite(cur, s.key, val, isLast)
 			if isLast {
-				cur[s.key] = val
 				return
 			}
-			// Child must be a map; overwrite if not
-			next, ok := child.(map[string]any)
-			if !exists || !ok || next == nil {
-				next = make(map[string]any)
-				cur[s.key] = next
+		} else {
+			cur = handleSliceSegmentOverwrite(cur, s.key, *s.idx, val, isLast)
+			if isLast {
+				return
 			}
-			cur = next
-			continue
 		}
-
-		// key[index] case: child must be a slice; overwrite if not
-		sl, ok := child.([]any)
-		if !exists || !ok || sl == nil {
-			sl = make([]any, 0)
-		}
-
-		// grow slice to index+1
-		if *s.idx >= len(sl) {
-			newSl := make([]any, *s.idx+1)
-			copy(newSl, sl)
-			sl = newSl
-		}
-
-		if isLast {
-			sl[*s.idx] = val
-			cur[s.key] = sl
-			return
-		}
-
-		// Need a map at this index for further nesting
-		next, ok := sl[*s.idx].(map[string]any)
-		if !ok || next == nil {
-			next = make(map[string]any)
-			sl[*s.idx] = next
-		}
-
-		cur[s.key] = sl
-		cur = next
 	}
 }
 
-// ----------------------------- Value parsing -----------------------------
+// handleMapSegmentOverwrite processes a segment without an index (simple map traversal)
+func handleMapSegmentOverwrite(cur map[string]any, key string, val any, isLast bool) map[string]any {
+	if isLast {
+		cur[key] = val
+		return cur
+	}
+
+	return ensureNestedMap(cur, key)
+}
+
+// handleSliceSegmentOverwrite processes a segment with an index (slice operation)
+func handleSliceSegmentOverwrite(cur map[string]any, key string, idx int, val any, isLast bool) map[string]any {
+	slice := ensureSliceOverwrite(cur, key)
+	slice = expandSliceToIndex(slice, idx)
+
+	if isLast {
+		slice[idx] = val
+		cur[key] = slice
+		return cur
+	}
+
+	nextMap := ensureMapAtSliceIndex(slice, idx)
+	cur[key] = slice
+	return nextMap
+}
+
+// ensureNestedMap gets or creates a map under the given key, overwriting if necessary
+func ensureNestedMap(cur map[string]any, key string) map[string]any {
+	child, exists := cur[key]
+	if next, ok := child.(map[string]any); exists && ok && next != nil {
+		return next
+	}
+
+	next := make(map[string]any)
+	cur[key] = next
+	return next
+}
+
+// ensureSliceOverwrite gets or creates a slice under the given key, overwriting if necessary
+func ensureSliceOverwrite(cur map[string]any, key string) []any {
+	child, exists := cur[key]
+	if slice, ok := child.([]any); exists && ok && slice != nil {
+		return slice
+	}
+
+	return make([]any, 0)
+}
+
+// expandSliceToIndex grows the slice to accommodate the given index
+func expandSliceToIndex(slice []any, idx int) []any {
+	if idx < len(slice) {
+		return slice
+	}
+
+	newSlice := make([]any, idx+1)
+	copy(newSlice, slice)
+	return newSlice
+}
+
+// ensureMapAtSliceIndex gets or creates a map at the specified slice index
+func ensureMapAtSliceIndex(slice []any, idx int) map[string]any {
+	if next, ok := slice[idx].(map[string]any); ok && next != nil {
+		return next
+	}
+
+	next := make(map[string]any)
+	slice[idx] = next
+	return next
+}
 
 // parseJSONish tries to unmarshal JSON first (so numbers/bools/objects/arrays work).
 // If it fails, the raw string is returned as a plain string.
@@ -154,5 +195,6 @@ func splitOnce(s string, sep byte) (string, string, bool) {
 	if i < 0 {
 		return s, "", false
 	}
+
 	return s[:i], s[i+1:], true
 }

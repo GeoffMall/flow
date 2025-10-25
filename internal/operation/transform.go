@@ -16,6 +16,7 @@ func NewPipeline(ops ...Operation) *Pipeline {
 	// Defensive copy so callers can reuse/slice their own list safely.
 	cpy := make([]Operation, len(ops))
 	copy(cpy, ops)
+
 	return &Pipeline{Ops: cpy}
 }
 
@@ -41,14 +42,11 @@ func (p *Pipeline) Apply(v any) (any, error) {
 				Wrapped: err,
 			}
 		}
+
 		current = next
 	}
-	return current, nil
-}
 
-// Compose is a convenience that constructs a pipeline and applies it immediately.
-func Compose(v any, ops ...Operation) (any, error) {
-	return NewPipeline(ops...).Apply(v)
+	return current, nil
 }
 
 // --------------------------- Error types ---------------------------
@@ -64,6 +62,7 @@ func (e StepError) Error() string {
 	if e.OpDesc == "" {
 		return fmt.Sprintf("pipeline step %d failed: %v", e.Index, e.Wrapped)
 	}
+
 	return fmt.Sprintf("pipeline step %d (%s) failed: %v", e.Index, e.OpDesc, e.Wrapped)
 }
 
@@ -76,5 +75,6 @@ func safeDesc(op Operation) (desc string) {
 			desc = ""
 		}
 	}()
+
 	return op.Description()
 }

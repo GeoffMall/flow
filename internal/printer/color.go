@@ -20,174 +20,215 @@ const (
 )
 
 func colorizeJSON(in []byte) []byte {
-	out := make([]byte, 0, len(in)+len(in)/4) // small headroom
+	colorizer := newJSONColorizer(in)
+	return colorizer.colorize()
+}
 
-	type ctxType int
-	const (
-		ctxRoot ctxType = iota
-		ctxObj
-		ctxArr
-	)
+type jsonColorizer struct {
+	input  []byte
+	output []byte
+	stack  []objState
+	inStr  bool
+	esc    bool
+}
 
-	// Stack to determine if we are inside an object and whether the next string is a key.
-	type objState struct {
-		expectKey bool
+type objState struct {
+	expectKey bool
+}
+
+func newJSONColorizer(in []byte) *jsonColorizer {
+	return &jsonColorizer{
+		input:  in,
+		output: make([]byte, 0, len(in)+len(in)/4),
+		stack:  make([]objState, 0),
 	}
-	var stack []objState
-	push := func(s objState) { stack = append(stack, s) }
-	pop := func() {
-		if len(stack) > 0 {
-			stack = stack[:len(stack)-1]
-		}
-	}
-	top := func() *objState {
-		if len(stack) == 0 {
-			return nil
-		}
-		return &stack[len(stack)-1]
-	}
+}
 
-	// Track whether inside a string and escaping.
-	inStr := false
-	esc := false
+func (c *jsonColorizer) colorize() []byte {
+	for i := 0; i < len(c.input); i++ {
+		b := c.input[i]
 
-	// Helper to write colored rune/bytes
-	write := func(s string) { out = append(out, s...) }
-	writeByte := func(b byte) { out = append(out, b) }
-
-	for i := 0; i < len(in); i++ {
-		b := in[i]
-
-		if inStr {
-			// Inside string
-			writeByte(b)
-			if esc {
-				esc = false
-				continue
-			}
-			if b == '\\' {
-				esc = true
-				continue
-			}
-			if b == '"' {
-				// end string
-				write(colReset)
-
-				// If we're in an object and we just wrote a key (before ':'), set expectKey=false
-				if st := top(); st != nil && st.expectKey {
-					// The next significant non-space should be ':'
-				}
-				inStr = false
-			}
+		if c.inStr {
+			c.processStringChar(b)
 			continue
 		}
 
-		switch b {
-		case '{':
-			write(colPunct)
-			writeByte(b)
-			write(colReset)
-			// entering object: next string we see is a key
-			push(objState{expectKey: true})
-		case '}':
-			write(colPunct)
-			writeByte(b)
-			write(colReset)
-			// leaving object
-			pop()
-			// After a '}', if we are in object, next thing could be either ',' or end-of-object; if another key, expectKey=true will be set after ','
-		case '[':
-			write(colPunct)
-			writeByte(b)
-			write(colReset)
-			// entering array doesn't affect expectKey
-			push(objState{expectKey: false})
-		case ']':
-			write(colPunct)
-			writeByte(b)
-			write(colReset)
-			pop()
-		case ':', ',':
-			write(colPunct)
-			writeByte(b)
-			write(colReset)
-			if b == ',' {
-				// After a comma inside an object, expect a key again.
-				if st := top(); st != nil {
-					st.expectKey = (len(stack) > 0 && st != nil && st.expectKey) // keep current
-					// Actually, in object context, after ',', we expect a key; in array, nothing special.
-					// We can't easily tell if we're in object or array from objState alone, but:
-					// heuristic: if top exists and previously expectKey might have been false after a value, reset to true.
-					st.expectKey = true
-				}
-			}
-		case '"':
-			// String start: color based on context (key vs value)
-			if st := top(); st != nil && st.expectKey {
-				write(colKey)
-			} else {
-				write(colStr)
-			}
-			writeByte(b)
-			inStr = true
-
-			// If we colored as key, we keep expectKey=true until we see ':'.
-			// We'll toggle expectKey=false when ':' is encountered.
-		case 't':
-			// true
-			if tryWord(in, &i, "true", &out, colBoolNil) {
-				continue
-			}
-			writeByte(b)
-		case 'f':
-			// false
-			if tryWord(in, &i, "false", &out, colBoolNil) {
-				continue
-			}
-			writeByte(b)
-		case 'n':
-			// null
-			if tryWord(in, &i, "null", &out, colBoolNil) {
-				continue
-			}
-			writeByte(b)
-		default:
-			// numbers / spaces / others
-			if isDigitOrNumberChar(b) {
-				// color continuous number run
-				write(colNum)
-				j := i
-				for j < len(in) && isDigitOrNumberChar(in[j]) {
-					j++
-				}
-				out = append(out, in[i:j]...)
-				write(colReset)
-				i = j - 1
-			} else {
-				// space or other punctuation
-				writeByte(b)
-			}
-		}
-
-		// After writing ':', set expectKey=false (value next) for object context.
-		if b == ':' {
-			if st := top(); st != nil {
-				st.expectKey = false
-			}
-		}
-		// After ',', if we're in an object, expect a key next.
-		if b == ',' {
-			if st := top(); st != nil {
-				st.expectKey = true
-			}
-		}
+		c.processNonStringChar(b, &i)
 	}
 
-	// Ensure newline (some compact JSON may not have one)
-	if len(out) == 0 || out[len(out)-1] != '\n' {
-		out = append(out, '\n')
+	c.ensureNewline()
+	return c.output
+}
+
+func (c *jsonColorizer) processStringChar(b byte) {
+	c.writeByte(b)
+
+	if c.esc {
+		c.esc = false
+		return
 	}
-	return out
+
+	if b == '\\' {
+		c.esc = true
+		return
+	}
+
+	if b == '"' {
+		c.write(colReset)
+		c.inStr = false
+	}
+}
+
+func (c *jsonColorizer) processNonStringChar(b byte, i *int) {
+	switch b {
+	case '{':
+		c.handleObjectStart()
+	case '}':
+		c.handleObjectEnd()
+	case '[':
+		c.handleArrayStart()
+	case ']':
+		c.handleArrayEnd()
+	case ':', ',':
+		c.handlePunctuation(b)
+	case '"':
+		c.handleStringStart()
+	case 't', 'f', 'n':
+		c.handleBooleanOrNull(b, i)
+	default:
+		c.handleDefault(b, i)
+	}
+}
+
+func (c *jsonColorizer) handleBooleanOrNull(b byte, i *int) {
+	switch b {
+	case 't':
+		c.handleKeyword(i, "true")
+	case 'f':
+		c.handleKeyword(i, "false")
+	case 'n':
+		c.handleKeyword(i, "null")
+	}
+}
+
+func (c *jsonColorizer) handleObjectStart() {
+	c.writePunctuation('{')
+	c.pushState(objState{expectKey: true})
+}
+
+func (c *jsonColorizer) handleObjectEnd() {
+	c.writePunctuation('}')
+	c.popState()
+}
+
+func (c *jsonColorizer) handleArrayStart() {
+	c.writePunctuation('[')
+	c.pushState(objState{expectKey: false})
+}
+
+func (c *jsonColorizer) handleArrayEnd() {
+	c.writePunctuation(']')
+	c.popState()
+}
+
+func (c *jsonColorizer) handlePunctuation(b byte) {
+	c.writePunctuation(b)
+
+	if b == ':' {
+		c.setExpectKey(false)
+	} else if b == ',' {
+		c.setExpectKey(true)
+	}
+}
+
+func (c *jsonColorizer) handleStringStart() {
+	if c.isExpectingKey() {
+		c.write(colKey)
+	} else {
+		c.write(colStr)
+	}
+
+	c.writeByte('"')
+	c.inStr = true
+}
+
+func (c *jsonColorizer) handleKeyword(i *int, keyword string) {
+	if tryWord(c.input, i, keyword, &c.output, colBoolNil) {
+		return
+	}
+	c.writeByte(c.input[*i])
+}
+
+func (c *jsonColorizer) handleDefault(b byte, i *int) {
+	if isDigitOrNumberChar(b) {
+		c.handleNumber(i)
+	} else {
+		c.writeByte(b)
+	}
+}
+
+func (c *jsonColorizer) handleNumber(i *int) {
+	c.write(colNum)
+
+	j := *i
+	for j < len(c.input) && isDigitOrNumberChar(c.input[j]) {
+		j++
+	}
+
+	c.output = append(c.output, c.input[*i:j]...)
+	c.write(colReset)
+	*i = j - 1
+}
+
+// Helper methods
+func (c *jsonColorizer) write(s string) {
+	c.output = append(c.output, s...)
+}
+
+func (c *jsonColorizer) writeByte(b byte) {
+	c.output = append(c.output, b)
+}
+
+func (c *jsonColorizer) writePunctuation(b byte) {
+	c.write(colPunct)
+	c.writeByte(b)
+	c.write(colReset)
+}
+
+func (c *jsonColorizer) pushState(s objState) {
+	c.stack = append(c.stack, s)
+}
+
+func (c *jsonColorizer) popState() {
+	if len(c.stack) > 0 {
+		c.stack = c.stack[:len(c.stack)-1]
+	}
+}
+
+func (c *jsonColorizer) topState() *objState {
+	if len(c.stack) == 0 {
+		return nil
+	}
+	return &c.stack[len(c.stack)-1]
+}
+
+func (c *jsonColorizer) isExpectingKey() bool {
+	if st := c.topState(); st != nil {
+		return st.expectKey
+	}
+	return false
+}
+
+func (c *jsonColorizer) setExpectKey(expectKey bool) {
+	if st := c.topState(); st != nil {
+		st.expectKey = expectKey
+	}
+}
+
+func (c *jsonColorizer) ensureNewline() {
+	if len(c.output) == 0 || c.output[len(c.output)-1] != '\n' {
+		c.output = append(c.output, '\n')
+	}
 }
 
 func isDigitOrNumberChar(b byte) bool {
@@ -205,8 +246,10 @@ func tryWord(in []byte, i *int, word string, out *[]byte, color string) bool {
 		*out = append(*out, in[*i:*i+len(word)]...)
 		*out = append(*out, colReset...)
 		*i += len(word) - 1
+
 		return true
 	}
+
 	return false
 }
 
@@ -214,10 +257,12 @@ func hasWordAt(b []byte, i int, w string) bool {
 	if i+len(w) > len(b) {
 		return false
 	}
+
 	for j := 0; j < len(w); j++ {
 		if b[i+j] != w[j] {
 			return false
 		}
 	}
+
 	return true
 }

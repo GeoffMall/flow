@@ -34,16 +34,16 @@ flow -in config.yaml -set server.debug=false -delete server.secret
 ### ⚙️ Example Usage
 ```bash
 # Pick two fields
-cat data.json | flow --pick user.name --pick user.id
+cat data.json | flow -pick user.name -pick user.id
 
 # Set and delete
-flow -in data.yaml --set server.port=8080 --delete debug
+flow -in data.yaml -set server.port=8080 -delete debug
 
 # Convert YAML to JSON
-flow -in config.yaml --to json
+flow -in config.yaml -to json
 
 # Pretty-print JSON with colors
-flow -in input.json --color
+flow -in input.json -color
 
 # Stream transformations
 # Does not work yet, but coming soon:

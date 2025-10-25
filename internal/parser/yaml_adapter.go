@@ -31,6 +31,7 @@ func (d *YAMLDecoder) Next() (any, bool, error) {
 		}
 		return nil, false, err
 	}
+
 	return normalizeYAML(node), true, nil
 }
 
@@ -45,6 +46,7 @@ type YAMLEncoder struct {
 func NewYAMLEncoder(w io.Writer) *YAMLEncoder {
 	e := yaml.NewEncoder(w)
 	e.SetIndent(2)
+
 	return &YAMLEncoder{enc: e}
 }
 

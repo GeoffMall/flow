@@ -65,9 +65,13 @@ func TestParseFlags_AllFlags(t *testing.T) {
 // withArgs temporarily sets os.Args for a test.
 func withArgs(t *testing.T, args []string, fn func()) {
 	t.Helper()
+
 	origArgs := os.Args
+
 	defer func() { os.Args = origArgs }()
+
 	os.Args = append([]string{origArgs[0]}, args...)
+
 	fn()
 }
 

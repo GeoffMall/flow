@@ -49,6 +49,7 @@ func parsePath(path string) ([]segment, error) {
 			// Just a key
 			s.key = part
 			segs = append(segs, s)
+
 			continue
 		}
 
@@ -59,13 +60,17 @@ func parsePath(path string) ([]segment, error) {
 
 		s.key = part[:open]
 		idxStr := part[open+1 : len(part)-1]
+
 		if idxStr == "" {
 			return nil, fmt.Errorf("empty index in %q", part)
 		}
+
 		n, err := strconv.Atoi(idxStr)
+
 		if err != nil || n < 0 {
 			return nil, fmt.Errorf("invalid non-negative index in %q", part)
 		}
+
 		s.idx = &n
 		segs = append(segs, s)
 	}
