@@ -1,0 +1,48 @@
+{
+  "result": [
+    {
+      "message": "Hello, Rowan! Your order number is: #68",
+      "phoneNumber": "1-631-216-9896",
+      "phoneVariation": "+90 311 884 10 76",
+      "status": "active",
+      "name": {
+        "first": "Shyann",
+        "middle": "Micah",
+        "last": "Fahey"
+      },
+      "username": "Shyann-Fahey",
+      "password": "96dFAIMzsBeddJu",
+      "emails": [
+        "Waldo46@example.com",
+        "Jazmyn_Runte@example.com"
+      ],
+      "location": {
+        "street": "22225 Boyle Fall",
+        "city": "Marianomouth",
+        "state": "Georgia",
+        "country": "Samoa",
+        "zip": "58379-2964",
+        "coordinates": {
+          "latitude": "-81.2932",
+          "longitude": "5.4216"
+        }
+      },
+      "website": "https://giddy-prosperity.info/",
+      "domain": "pure-skin.name",
+      "job": {
+        "title": "National Group Engineer",
+        "descriptor": "Chief",
+        "area": "Brand",
+        "type": "Architect",
+        "company": "Jones, Bartell and O'Conner"
+      },
+      "creditCard": {
+        "number": "4825017915444",
+        "cvv": "009",
+        "issuer": "discover"
+      },
+      "uuid": "ba555376-d1f1-44ea-a4b3-a3b585aa44a8",
+      "objectId": "68fe7762d8c4803c9d70ba5c"
+    }
+  ]
+}

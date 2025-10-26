@@ -9,6 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const fakeJSONPath = "testdata/fake.json"
+
+func Test_run_fakeJSON(t *testing.T) {
+	i, closeI, err := openInput(fakeJSONPath)
+	assert.NoError(t, err)
+	defer closeI()
+
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		PickPaths: []string{"result[0].name.middle"},
+		Compact:   true,
+	}
+	err = run(i, &out, opts)
+	assert.NoError(t, err)
+
+	got := out.String()
+	want := `{"result":[{"name":{"middle":"Micah"}}]}` + "\n"
+	assert.Equal(t, want, got)
+}
+
 func Test_run_EchoJSON_NoOps(t *testing.T) {
 	in := strings.NewReader(`{"a":1,"b":2}`)
 	var out bytes.Buffer

@@ -92,7 +92,7 @@ func (p *Printer) writeJSON(v any) error {
 		return err
 	}
 
-	// Ensure new line for compact mode (pretty already has one).
+	// Ensure a new line for compact mode (pretty already has one).
 	if p.opt.Compact {
 		if len(b) == 0 || b[len(b)-1] != '\n' {
 			_, _ = p.w.Write([]byte{'\n'})
@@ -104,7 +104,11 @@ func (p *Printer) writeJSON(v any) error {
 
 func (p *Printer) writeYAML(v any) error {
 	enc := parser.NewYAMLEncoder(p.w)
-	defer enc.Close()
+	defer func() {
+		if err := enc.Close(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: yaml encoder close: %v\n", err)
+		}
+	}()
 	if err := enc.Encode(v); err != nil {
 		return fmt.Errorf("yaml encode: %w", err)
 	}
