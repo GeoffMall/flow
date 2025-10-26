@@ -1,4 +1,4 @@
-name: lint-security
+name: Golang CI Lint
 
 on:
   push:
