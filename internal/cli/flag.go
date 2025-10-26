@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/GeoffMall/flow/internal/version"
 )
 
 // Flags holds all parsed command-line arguments.
@@ -17,7 +19,8 @@ type Flags struct {
 	Color       bool     // pretty colorized output
 	Compact     bool     // minified output
 	ToFormat    string   // convert output format: json | yaml
-	ShowHelp    bool
+	ShowHelp    bool     // show help and exit
+	ShowVersion bool     // show version and exit
 }
 
 // ParseFlags parses CLI flags and returns a populated Flags struct.
@@ -42,6 +45,7 @@ func ParseFlags() *Flags {
 	flag.BoolVar(&f.Compact, "compact", false, "Minify output instead of pretty-printing")
 	flag.StringVar(&f.ToFormat, "to", "", "Convert output format: json | yaml")
 	flag.BoolVar(&f.ShowHelp, "help", false, "Show usage")
+	flag.BoolVar(&f.ShowVersion, "version", false, "Show version information")
 
 	flag.Usage = usage
 
@@ -50,6 +54,12 @@ func ParseFlags() *Flags {
 	// If help was requested, print and exit
 	if f.ShowHelp {
 		flag.Usage()
+		os.Exit(0)
+	}
+
+	// If the version was requested, print and exit
+	if f.ShowVersion {
+		printVersion()
 		os.Exit(0)
 	}
 
@@ -91,4 +101,10 @@ func usage() {
 
 func printLinef(format string, a ...any) {
 	_, _ = fmt.Fprintf(os.Stderr, format, a...)
+}
+
+// printVersion prints the version information
+func printVersion() {
+	info := version.Get()
+	fmt.Println(info.String())
 }

@@ -12,7 +12,10 @@ builds:
     env: [CGO_ENABLED=0]
     flags: [-trimpath]
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w
+      - -X github.com/GeoffMall/flow/internal/version.Version={{.Version}}
+      - -X github.com/GeoffMall/flow/internal/version.GitCommit={{.ShortCommit}}
+      - -X github.com/GeoffMall/flow/internal/version.BuildDate={{.Date}}
     goos: [linux, darwin]
     goarch: [amd64, arm64]
 
