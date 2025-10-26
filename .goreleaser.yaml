@@ -1,3 +1,5 @@
+version: 2
+
 project_name: flow
 before:
   hooks:
@@ -11,21 +13,14 @@ builds:
     flags: [-trimpath]
     ldflags:
       - -s -w -X main.version={{.Version}}
-    goos: [linux, darwin, windows]
+    goos: [linux, darwin]
     goarch: [amd64, arm64]
 
 archives:
-  - id: tgz
+  - id: release
     builds: [flow]
-    format: tar.gz
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE
-      - README.md
-  - id: zipwin
-    builds: [flow]
-    format: zip
-    name_template: "{{ .ProjectName }}_{{ .Version }}_windows_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
