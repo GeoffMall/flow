@@ -2,10 +2,10 @@
 
 > A lightweight, fast, Go-native CLI for extracting, transforming, and filtering structured data.
 
-## 🧭 Overview
+## Overview
 
 `flow` is a command-line tool designed to make working with structured data (JSON and YAML) as **easy as piping**.  
-Unlike tools like [jq](https://stedolan.github.io/jq/), `flow` emphasizes **readability**, **composability**, and **streaming** — making it ideal for DevOps, data wrangling, and quick debugging.
+This is an alternative to tools like [jq](https://stedolan.github.io/jq/), and emphasizes **readability**, **composability**, and **streaming** — making it ideal for DevOps, data wrangling, and quick debugging.
 
 ```bash
 cat data.json | flow -pick user.name -pick user.id
