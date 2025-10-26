@@ -38,7 +38,7 @@ func Get() Info {
 func (i Info) String() string {
 	if i.GitCommit != "" && i.BuildDate != "" {
 		return fmt.Sprintf("%s (commit: %s, built: %s, %s, %s)",
-			i.Version, i.GitCommit[:8], i.BuildDate, i.GoVersion, i.Platform)
+			i.Version, i.GitCommit[:6], i.BuildDate, i.GoVersion, i.Platform)
 	}
 	return fmt.Sprintf("%s (%s, %s)", i.Version, i.GoVersion, i.Platform)
 }
