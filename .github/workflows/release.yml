@@ -10,17 +10,17 @@ on:
         type: boolean
 
 permissions:
-  contents: read # for checkout
+  contents: read   # for checkout
 
 jobs:
   release:
     name: ${{ inputs.dry_run && 'Release (Dry Run)' || 'Release' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write # to be able to publish a GitHub release
-      issues: write # to be able to comment on released issues
-      pull-requests: write # to be able to comment on released pull requests
-      id-token: write # to enable use of OIDC for npm provenance
+      contents: write          # publish GitHub release
+      issues: write            # comment on released issues
+      pull-requests: write     # comment on released PRs
+      id-token: write          # (optional) OIDC if you later sign artifacts
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -32,15 +32,41 @@ jobs:
         with:
           node-version: "lts/*"
 
-      - name: Print Node.js and npm version
-        run: |
-          node --version
-          npm --version
-
-      - name: Install semantic release
-        run: npm install --save-dev semantic-release
-
-      - name: ${{ inputs.dry_run && 'Release (Dry Run)' || 'Release' }}
+      # Use the semantic-release action to get useful outputs (version, published flag)
+      - name: Semantic Release
+        id: semrel
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          dry_run: ${{ inputs.dry_run }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      # Stop here if dry run or nothing was published (e.g., no new commits)
+      - name: Skip if no new release
+        if: ${{ inputs.dry_run || steps.semrel.outputs.new_release_published != 'true' }}
+        run: |
+          echo "No new release published (or dry run). Skipping GoReleaser."
+          exit 0
+
+      # Build and upload multi-OS/arch archives to the release created by semantic-release
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      # (Optional) Print the version we’re about to use
+      - name: Show release version
+        run: echo "Releasing tag v${{ steps.semrel.outputs.new_release_version }}"
+
+      - name: GoReleaser
+        # GoReleaser will upload assets to the existing GitHub Release with this tag
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Force the tag/version to match semantic-release output
+          GORELEASER_CURRENT_TAG: v${{ steps.semrel.outputs.new_release_version }}
