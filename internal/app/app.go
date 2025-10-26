@@ -35,6 +35,7 @@ func openInput(path string) (io.Reader, func(), error) {
 	if path == "" {
 		return os.Stdin, func() {}, nil
 	}
+	// #nosec G304 - CLI tool trusts user-provided file paths
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, func() {}, err
@@ -46,6 +47,7 @@ func openOutput(path string) (io.Writer, func(), error) {
 	if path == "" {
 		return os.Stdout, func() {}, nil
 	}
+	// #nosec G304 - CLI tool trusts user-provided file paths
 	f, err := os.Create(path)
 	if err != nil {
 		return nil, func() {}, err

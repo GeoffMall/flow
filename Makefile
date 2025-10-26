@@ -1,4 +1,5 @@
-
 test:
 	go test ./...
 	golangci-lint run
+	gosec --quiet -r
+	govulncheck ./...
