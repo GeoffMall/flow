@@ -32,20 +32,32 @@ func (p *Pick) Apply(v any) (any, error) {
 	out := make(map[string]any)
 
 	for _, raw := range p.Paths {
-		segs, err := parsePath(raw)
+		// Expand wildcards into concrete paths
+		expandedPaths, err := expandWildcardPaths(v, raw)
 		if err != nil {
-			// Surface path parsing errors; caller may want to show friendly message.
 			return nil, fmt.Errorf("invalid --pick %q: %w", raw, err)
 		}
 
-		val, ok := getAtPath(v, segs)
-		if !ok {
-			// Path doesn't exist; skip
-			continue
+		// If no expansion occurred (no wildcards), expandedPaths will contain the original path
+		if len(expandedPaths) == 0 {
+			expandedPaths = []string{raw}
 		}
 
-		// Merge into output at the same path.
-		setAtPath(out, segs, val)
+		// Process each expanded path
+		for _, expandedPath := range expandedPaths {
+			segs, err := parsePath(expandedPath)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expanded path %q: %w", expandedPath, err)
+			}
+
+			val, ok := getAtPath(v, segs)
+			if !ok {
+				continue
+			}
+
+			// Merge into output at the same path
+			setAtPath(out, segs, val)
+		}
 	}
 
 	// If nothing was picked, return empty object.

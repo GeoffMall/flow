@@ -71,12 +71,26 @@ func (s *Set) Apply(v any) (any, error) {
 	}
 
 	for _, a := range s.Assignments {
-		segs, err := parsePath(a.Path)
+		// Expand wildcards into concrete paths
+		expandedPaths, err := expandWildcardPaths(root, a.Path)
 		if err != nil {
 			return nil, fmt.Errorf("invalid path %q: %w", a.Path, err)
 		}
 
-		setAtPathOverwrite(root, segs, a.Value)
+		// If no expansion occurred, use original path
+		if len(expandedPaths) == 0 {
+			expandedPaths = []string{a.Path}
+		}
+
+		// Process each expanded path
+		for _, expandedPath := range expandedPaths {
+			segs, err := parsePath(expandedPath)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expanded path %q: %w", expandedPath, err)
+			}
+
+			setAtPathOverwrite(root, segs, a.Value)
+		}
 	}
 
 	return root, nil

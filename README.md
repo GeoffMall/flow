@@ -12,6 +12,12 @@ cat data.json | flow -pick user.name -pick user.id
 flow -in config.yaml -set server.debug=false -delete server.secret
 ```
 
+### Installation
+
+```bash
+go install github.com/GeoffMall/flow@latest
+```
+
 ### Key features:
 
 - Streaming, no full in-memory parse required

@@ -28,12 +28,26 @@ func (d *Delete) Apply(v any) (any, error) {
 	// We mutate in place if the root is a map[string]any or []any.
 	// If the root is scalar and paths target subfields, this becomes a no-op.
 	for _, raw := range d.Paths {
-		segs, err := parsePath(raw)
+		// Expand wildcards into concrete paths
+		expandedPaths, err := expandWildcardPaths(v, raw)
 		if err != nil {
 			return nil, fmt.Errorf("invalid --delete %q: %w", raw, err)
 		}
 
-		deleteAtPath(&v, segs)
+		// If no expansion occurred, use original path
+		if len(expandedPaths) == 0 {
+			expandedPaths = []string{raw}
+		}
+
+		// Process each expanded path
+		for _, expandedPath := range expandedPaths {
+			segs, err := parsePath(expandedPath)
+			if err != nil {
+				return nil, fmt.Errorf("invalid expanded path %q: %w", expandedPath, err)
+			}
+
+			deleteAtPath(&v, segs)
+		}
 	}
 
 	return v, nil
