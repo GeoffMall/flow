@@ -18,6 +18,16 @@ flow -in config.yaml -set server.debug=false -delete server.secret
 go install github.com/GeoffMall/flow@latest
 ```
 
+or build from source:
+
+```bash
+git clone https://github.com/GeoffMall/flow.git
+cd flow
+go build -o flow
+```
+
+or download pre-built binaries from the releases page.
+
 ### Key features:
 
 - Streaming, no full in-memory parse required
@@ -25,17 +35,7 @@ go install github.com/GeoffMall/flow@latest
 - Works with both JSON and YAML seamlessly
 - Written in Go for speed and portability
 - Friendly error messages
-
-
-### Design Philosophy
-
-- Minimal cognitive load: flags over DSL. flow --pick user.name is easier than jq '.user.name'.
-- Predictable transformations: operations are composable and executed in deterministic order.
-- Stream-first: never fully load large files; process as they come.
-- Interoperable: works with stdin/stdout by default, supports files optionally.
-- Speed: Go streaming parser is optimized for performance.
-- Extensible: each new operation lives in its own file with a shared interface.
-
+- Interoperable with stdin/stdout for easy piping
 
 ### ⚙️ Example Usage
 ```bash
@@ -55,3 +55,9 @@ flow -in input.json -color
 # Does not work yet, but coming soon:
 # cat big.json | flow --pick data.items[*].name
 ```
+
+### Roadmap
+
+- [ ] Multiple input sources and/or folder support
+- [ ] Advanced querying (e.g., filtering arrays)
+- [ ] More output formats (CSV, XML, Avro, Parquet)
