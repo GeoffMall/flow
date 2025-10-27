@@ -60,4 +60,4 @@ flow -in input.json -color
 
 - [ ] Multiple input sources and/or folder support
 - [ ] Advanced querying (e.g., filtering arrays)
-- [ ] More output formats (CSV, XML, Avro, Parquet)
+- [ ] More supported formats (CSV, XML, Avro, Parquet)
