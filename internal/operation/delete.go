@@ -85,7 +85,7 @@ func navigateToParent(v *any, segs []segment) (*any, error) {
 			}
 		}
 
-		*cur = next
+		// Navigate to the child without modifying the current value
 		cur = &next
 	}
 
