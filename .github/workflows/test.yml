@@ -51,6 +51,22 @@ jobs:
             echo "**Total:** $total_pct"
           } >> $GITHUB_STEP_SUMMARY
 
+      - name: Check coverage threshold
+        run: |
+          total_line=$(grep -E '^total:' coverage.txt)
+          total_pct=$(echo "$total_line" | awk '{print $3}')
+          # Remove % sign and convert to number for comparison
+          coverage_num=$(echo "$total_pct" | sed 's/%//')
+          echo "Current coverage: $coverage_num%"
+
+          # Use awk for floating point comparison
+          if awk -v cov="$coverage_num" 'BEGIN { exit !(cov >= 80.0) }'; then
+            echo "✓ Coverage check passed: $coverage_num% >= 80%"
+          else
+            echo "✗ Coverage check failed: $coverage_num% < 80%"
+            exit 1
+          fi
+
       - name: Upload coverage artifacts
         uses: actions/upload-artifact@v4
         with:
