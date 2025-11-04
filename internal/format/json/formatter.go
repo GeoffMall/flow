@@ -1,28 +1,103 @@
-package printer
+package json
 
-// ------------------------- JSON Colorizer -------------------------
-// A lightweight JSON colorizer that works on already-encoded JSON bytes.
-// It uses a small state machine, coloring:
-//   - object keys (in strings before a ':')
-//   - string values
-//   - numbers
-//   - true/false/null
-//   - punctuation ({}[],:)
-// If the JSON is not valid, it simply attempts best-effort highlighting.
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 
+	"github.com/GeoffMall/flow/internal/format"
+)
+
+// Formatter implements format.Formatter for JSON output.
+type Formatter struct {
+	w       io.Writer
+	color   bool
+	compact bool
+}
+
+// NewFormatter creates a new JSON formatter with the given options.
+func NewFormatter(w io.Writer, opts format.FormatterOptions) *Formatter {
+	return &Formatter{
+		w:       w,
+		color:   opts.Color,
+		compact: opts.Compact,
+	}
+}
+
+// Write outputs a single JSON document with formatting.
+// Respects compact and color options.
+func (f *Formatter) Write(doc any) error {
+	var b []byte
+	var err error
+
+	if f.compact {
+		// Compact JSON - single line
+		b, err = json.Marshal(doc)
+		if err != nil {
+			return fmt.Errorf("json marshal: %w", err)
+		}
+	} else {
+		// Pretty print with 2-space indentation
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+
+		if err := enc.Encode(doc); err != nil {
+			return fmt.Errorf("json encode: %w", err)
+		}
+		b = buf.Bytes()
+		// Encoder adds a trailing newline - keep it for readability
+	}
+
+	// Apply colorization if requested
+	if f.color {
+		b = colorizeJSON(b)
+	}
+
+	// Write to output
+	_, err = f.w.Write(b)
+	if err != nil {
+		return err
+	}
+
+	// Ensure newline for compact mode (pretty already has one)
+	if f.compact && (len(b) == 0 || b[len(b)-1] != '\n') {
+		if _, err := f.w.Write([]byte{'\n'}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Close flushes any buffered data (no-op for JSON)
+func (f *Formatter) Close() error {
+	return nil
+}
+
+// colorizeJSON adds ANSI color codes to JSON bytes for terminal display.
+// Uses a state machine to identify and color:
+//   - Object keys (blue)
+//   - String values (green)
+//   - Numbers (orange)
+//   - Booleans and null (purple)
+//   - Punctuation (gray)
+func colorizeJSON(in []byte) []byte {
+	colorizer := newJSONColorizer(in)
+	return colorizer.colorize()
+}
+
+// ANSI color codes
 const (
 	colReset   = "\x1b[0m"
-	colKey     = "\x1b[38;5;33m"  // blue-ish for keys
+	colKey     = "\x1b[38;5;33m"  // blue for keys
 	colStr     = "\x1b[38;5;34m"  // green for strings
 	colNum     = "\x1b[38;5;214m" // orange for numbers
 	colBoolNil = "\x1b[38;5;135m" // purple for true/false/null
 	colPunct   = "\x1b[38;5;240m" // gray for punctuation
 )
-
-func colorizeJSON(in []byte) []byte {
-	colorizer := newJSONColorizer(in)
-	return colorizer.colorize()
-}
 
 type jsonColorizer struct {
 	input  []byte
@@ -39,7 +114,7 @@ type objState struct {
 func newJSONColorizer(in []byte) *jsonColorizer {
 	return &jsonColorizer{
 		input:  in,
-		output: make([]byte, 0, len(in)+len(in)/4),
+		output: make([]byte, 0, len(in)+len(in)/4), // Extra space for color codes
 		stack:  make([]objState, 0),
 	}
 }
@@ -246,10 +321,8 @@ func tryWord(in []byte, i *int, word string, out *[]byte, color string) bool {
 		*out = append(*out, in[*i:*i+len(word)]...)
 		*out = append(*out, colReset...)
 		*i += len(word) - 1
-
 		return true
 	}
-
 	return false
 }
 

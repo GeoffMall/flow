@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/GeoffMall/flow/internal/cli"
+	"github.com/GeoffMall/flow/internal/format"
+	_ "github.com/GeoffMall/flow/internal/format/json" // Register JSON format
+	_ "github.com/GeoffMall/flow/internal/format/yaml" // Register YAML format
 	"github.com/GeoffMall/flow/internal/operation"
-	"github.com/GeoffMall/flow/internal/parser"
-	"github.com/GeoffMall/flow/internal/printer"
 )
 
 func Run() {
@@ -81,24 +82,45 @@ func buildPipeline(opts *cli.Flags) (*operation.Pipeline, error) {
 
 // run executes one full pass: parse stream -> apply pipeline -> print.
 func run(in io.Reader, out io.Writer, opts *cli.Flags) error {
-	p := printer.New(printer.Options{
-		ToFormat: opts.ToFormat,
-		Color:    opts.Color,
-		Compact:  opts.Compact,
-		Writer:   out,
-	})
-
+	// Build operation pipeline
 	pipe, err := buildPipeline(opts)
 	if err != nil {
 		return err
 	}
 
-	pr, err := parser.New(in)
+	// Auto-detect input format
+	inputFormat, br, err := format.AutoDetect(in)
 	if err != nil {
-		return err
+		return fmt.Errorf("format detection failed: %w", err)
 	}
 
-	return pr.ForEach(func(doc any) error {
+	// Create parser for detected format
+	parser, err := inputFormat.NewParser(br)
+	if err != nil {
+		return fmt.Errorf("failed to create parser: %w", err)
+	}
+
+	// Determine output format (default to json if not specified)
+	outputFormatName := opts.ToFormat
+	if outputFormatName == "" {
+		outputFormatName = "json"
+	}
+
+	// Get output format
+	outputFormat, err := format.Get(outputFormatName)
+	if err != nil {
+		return fmt.Errorf("unknown output format %q: %w", outputFormatName, err)
+	}
+
+	// Create formatter for output
+	formatter := outputFormat.NewFormatter(out, format.FormatterOptions{
+		Color:   opts.Color,
+		Compact: opts.Compact,
+	})
+	defer formatter.Close()
+
+	// Process stream: parse -> transform -> format
+	return parser.ForEach(func(doc any) error {
 		outDoc := doc
 		if !pipe.Empty() {
 			var err error
@@ -107,7 +129,7 @@ func run(in io.Reader, out io.Writer, opts *cli.Flags) error {
 				return err
 			}
 		}
-		return p.Write(outDoc)
+		return formatter.Write(outDoc)
 	})
 }
 
