@@ -1,6 +1,7 @@
 .claude
 .config
 .idea/
+.opencode/
 
 AGENTS.md
 CLAUDE.md
