@@ -45,6 +45,28 @@ or download pre-built binaries from the releases page.
 - Friendly error messages
 - Interoperable with stdin/stdout for easy piping
 
+## Comparison with jq
+
+Here's how `flow` compares to `jq` for common data extraction tasks:
+
+| Task | jq | flow |
+|------|-----|------|
+| **Extract a field** | `jq '.user.name'` | `flow -pick user.name` |
+| **Extract nested field** | `jq '.server.config.port'` | `flow -pick server.config.port` |
+| **Multiple fields** | `jq '{name: .user.name, id: .user.id}'` | `flow -pick user.name -pick user.id` |
+| **Array element** | `jq '.items[0]'` | `flow -pick items[0]` |
+| **All array items** | `jq '.items[]'` | `flow -pick items[*]` |
+| **Nested array fields** | `jq '.items[].name'` | `flow -pick items[*].name` |
+| **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` |
+| **Pretty print with color** | `jq -C '.'` | `flow -color` |
+| **Read from file** | `jq '.' < file.json` or `jq '.' file.json` | `flow -in file.json` |
+
+**Key differences:**
+- **Syntax**: `jq` uses a custom query language; `flow` uses simple CLI flags
+- **Learning curve**: `jq` requires learning its DSL; `flow` is immediately intuitive
+- **Formats**: `jq` is JSON-only (needs `yq` for YAML); `flow` handles both with auto-detection
+- **Streaming**: Both support streaming, but `flow` does it by default without special flags
+
 ## ⚙️ Usage
 
 ### Picking Fields
