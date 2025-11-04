@@ -13,8 +13,8 @@ import (
 
 func Run() {
 	f := cli.ParseFlags()
-	// default to color
-	f.Color = true
+	// Enable color by default unless --no-color is specified
+	f.Color = !f.NoColor
 
 	in, inClose, err := openInput(f.InputFile)
 	if err != nil {

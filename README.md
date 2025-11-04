@@ -125,8 +125,8 @@ flow -in config.yaml -delete server.secret
 # Read from a file and output as JSON
 flow -in config.yaml -to json
 
-# Pretty-print JSON with colors
-flow -in input.json -color
+# Disable colored output (colors are enabled by default)
+flow -in input.json -no-color
 ```
 
 ## Alternatives

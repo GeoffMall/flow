@@ -11,6 +11,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Test helper functions for color assertions
+
+// assertHasColor checks that the output contains ANSI color codes
+func assertHasColor(t *testing.T, output string) {
+	t.Helper()
+	assert.Contains(t, output, "\x1b[", "output should contain ANSI escape codes")
+	assert.Contains(t, output, colReset, "output should contain color reset codes")
+}
+
+// assertNoColor checks that the output does not contain ANSI color codes
+func assertNoColor(t *testing.T, output string) {
+	t.Helper()
+	assert.NotContains(t, output, "\x1b[", "output should not contain ANSI escape codes")
+}
+
+// assertHasColorType checks that a specific color type is present in the output
+func assertHasColorType(t *testing.T, output, colorCode, description string) {
+	t.Helper()
+	assert.Contains(t, output, colorCode, "output should contain %s", description)
+}
+
 func TestNew_NonNil(t *testing.T) {
 	p := New(Options{})
 	assert.NotNil(t, p)
@@ -272,10 +293,7 @@ func TestWrite_JSON_WithColor(t *testing.T) {
 	err := p.Write(input)
 	require.NoError(t, err)
 
-	output := buf.String()
-	// Should contain ANSI color codes
-	assert.Contains(t, output, "\x1b[")
-	assert.Contains(t, output, colReset)
+	assertHasColor(t, buf.String())
 }
 
 func TestWrite_JSON_WithoutColor(t *testing.T) {
@@ -286,9 +304,7 @@ func TestWrite_JSON_WithoutColor(t *testing.T) {
 	err := p.Write(input)
 	require.NoError(t, err)
 
-	output := buf.String()
-	// Should not contain ANSI color codes
-	assert.NotContains(t, output, "\x1b[")
+	assertNoColor(t, buf.String())
 }
 
 // YAML output tests
@@ -397,50 +413,48 @@ func TestWrite_YAML_AllTypes(t *testing.T) {
 // Colorization tests
 func TestColorizeJSON_SimpleObject(t *testing.T) {
 	input := []byte(`{"name":"alice"}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	// Should contain color codes
-	assert.Contains(t, string(output), colKey)
-	assert.Contains(t, string(output), colStr)
-	assert.Contains(t, string(output), colReset)
+	assertHasColor(t, output)
+	assertHasColorType(t, output, colKey, "key color")
+	assertHasColorType(t, output, colStr, "string color")
 }
 
 func TestColorizeJSON_WithNumbers(t *testing.T) {
 	input := []byte(`{"age":30}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	assert.Contains(t, string(output), colNum)
+	assertHasColorType(t, output, colNum, "number color")
 }
 
 func TestColorizeJSON_WithBoolean(t *testing.T) {
 	input := []byte(`{"active":true}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	assert.Contains(t, string(output), colBoolNil)
+	assertHasColorType(t, output, colBoolNil, "boolean color")
 }
 
 func TestColorizeJSON_WithNull(t *testing.T) {
 	input := []byte(`{"value":null}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	assert.Contains(t, string(output), colBoolNil)
+	assertHasColorType(t, output, colBoolNil, "null color")
 }
 
 func TestColorizeJSON_Array(t *testing.T) {
 	input := []byte(`[1,2,3]`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	assert.Contains(t, string(output), colNum)
-	assert.Contains(t, string(output), colPunct)
+	assertHasColorType(t, output, colNum, "number color")
+	assertHasColorType(t, output, colPunct, "punctuation color")
 }
 
 func TestColorizeJSON_NestedObject(t *testing.T) {
 	input := []byte(`{"user":{"name":"alice"}}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	// Should handle nested structures
-	assert.Contains(t, string(output), colKey)
-	assert.Contains(t, string(output), colStr)
+	assertHasColorType(t, output, colKey, "key color")
+	assertHasColorType(t, output, colStr, "string color")
 }
 
 func TestColorizeJSON_EmptyObject(t *testing.T) {
@@ -485,22 +499,22 @@ func TestColorizeJSON_MultilineInput(t *testing.T) {
   "name": "alice",
   "age": 30
 }`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
 	// Should preserve formatting
-	assert.Contains(t, string(output), "\n")
-	assert.Contains(t, string(output), colKey)
+	assert.Contains(t, output, "\n")
+	assertHasColorType(t, output, colKey, "key color")
 }
 
 func TestColorizeJSON_ComplexNested(t *testing.T) {
 	input := []byte(`{"users":[{"name":"alice","active":true},{"name":"bob","active":false}],"count":2}`)
-	output := colorizeJSON(input)
+	output := string(colorizeJSON(input))
 
-	// Should handle complex nesting
-	assert.Contains(t, string(output), colKey)
-	assert.Contains(t, string(output), colStr)
-	assert.Contains(t, string(output), colBoolNil)
-	assert.Contains(t, string(output), colNum)
+	// Should handle complex nesting with all color types
+	assertHasColorType(t, output, colKey, "key color")
+	assertHasColorType(t, output, colStr, "string color")
+	assertHasColorType(t, output, colBoolNil, "boolean color")
+	assertHasColorType(t, output, colNum, "number color")
 }
 
 // Format conversion tests

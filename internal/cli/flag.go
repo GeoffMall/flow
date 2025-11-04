@@ -9,6 +9,15 @@ import (
 	"github.com/GeoffMall/flow/internal/version"
 )
 
+// ANSI color codes for ASCII art
+const (
+	cyan1 = "\x1b[38;5;51m" // bright cyan
+	cyan2 = "\x1b[38;5;50m" // cyan
+	cyan3 = "\x1b[38;5;45m" // aqua cyan
+	aqua  = "\x1b[38;5;87m" // light aqua
+	reset = "\x1b[0m"       // reset color
+)
+
 // Flags holds all parsed command-line arguments.
 type Flags struct {
 	InputFile         string   // file to read from (optional; defaults to stdin)
@@ -16,7 +25,8 @@ type Flags struct {
 	PickPaths         []string // list of dotted paths to pick
 	SetPairs          []string // raw key=value strings for --set
 	DeletePaths       []string // list of paths to delete
-	Color             bool     // pretty colorized output
+	Color             bool     // pretty colorized output (internal use)
+	NoColor           bool     // disable colorized output
 	Compact           bool     // minified output
 	ToFormat          string   // convert output format: json | yaml
 	PreserveHierarchy bool     // preserve full path structure in pick output (legacy behavior)
@@ -42,7 +52,7 @@ func ParseFlags() *Flags {
 
 	flag.StringVar(&f.InputFile, "in", "", "Path to input file (optional, defaults to stdin)")
 	flag.StringVar(&f.OutputFile, "out", "", "Path to output file (optional, defaults to stdout)")
-	flag.BoolVar(&f.Color, "color", false, "(Deprecated) Enable colorized output")
+	flag.BoolVar(&f.NoColor, "no-color", false, "Disable colorized output")
 	flag.BoolVar(&f.Compact, "compact", false, "Minify output instead of pretty-printing")
 	flag.StringVar(&f.ToFormat, "to", "", "Convert output format: json | yaml")
 	flag.BoolVar(&f.PreserveHierarchy, "preserve-hierarchy", false, "Preserve full path structure in pick output (default: false, outputs values like jq)")
@@ -91,8 +101,22 @@ func (m *multiStringFlag) Set(value string) error {
 	return nil
 }
 
+// asciiArt returns the colored ASCII art banner for "flow"
+func asciiArt() string {
+	art := cyan1 + "######## ##        " + cyan2 + "#######  " + cyan3 + "##      ## " + reset + "\n"
+	art += cyan1 + "##       ##       " + cyan2 + "##     ## " + cyan3 + "##  ##  ## " + reset + "\n"
+	art += cyan1 + "##       ##       " + cyan2 + "##     ## " + cyan3 + "##  ##  ## " + reset + "\n"
+	art += cyan2 + "######   ##       " + cyan3 + "##     ## " + aqua + "##  ##  ## " + reset + "\n"
+	art += cyan2 + "##       ##       " + cyan3 + "##     ## " + aqua + "##  ##  ## " + reset + "\n"
+	art += cyan2 + "##       ##       " + cyan3 + "##     ## " + aqua + "##  ##  ## " + reset + "\n"
+	art += cyan3 + "##       ########  " + aqua + "#######   ###  ###  " + reset + "\n"
+	art += "\n" + aqua + "         ~stream your data~" + reset + "\n\n"
+	return art
+}
+
 func usage() {
-	// Custom usage message can be defined here
+	// Display ASCII art banner at the top
+	printLinef("%s", asciiArt())
 	printLinef("Usage: flow [flags]\n\n")
 	printLinef("Examples:\n")
 	printLinef("  cat data.json | flow --pick user.name --pick user.id  # outputs: {\"name\": \"alice\", \"id\": 7}\n")

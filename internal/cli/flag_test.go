@@ -19,7 +19,7 @@ func TestParseFlags_Defaults(t *testing.T) {
 		assert.Equal(t, 0, len(f.PickPaths), "PickPaths should be empty by default")
 		assert.Equal(t, 0, len(f.SetPairs), "SetPairs should be empty by default")
 		assert.Equal(t, 0, len(f.DeletePaths), "DeletePaths should be empty by default")
-		assert.False(t, f.Color, "Color should be false by default")
+		assert.False(t, f.NoColor, "NoColor should be false by default")
 		assert.False(t, f.Compact, "Compact should be false by default")
 		assert.Equal(t, "", f.ToFormat, "ToFormat should be empty by default")
 	})
@@ -36,7 +36,7 @@ func TestParseFlags_AllFlags(t *testing.T) {
 		"--set", "server.port=8080",
 		"--set", "debug=true",
 		"--delete", "server.secret",
-		"--color",
+		"--no-color",
 		"--compact",
 		"--to", "yaml",
 	}
@@ -56,7 +56,7 @@ func TestParseFlags_AllFlags(t *testing.T) {
 		wantDel := []string{"server.secret"}
 		assert.Equal(t, wantDel, f.DeletePaths, "DeletePaths should match")
 
-		assert.True(t, f.Color, "Color should be true")
+		assert.True(t, f.NoColor, "NoColor should be true")
 		assert.True(t, f.Compact, "Compact should be true")
 		assert.Equal(t, "yaml", f.ToFormat, "ToFormat should match")
 	})
