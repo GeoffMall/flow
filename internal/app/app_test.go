@@ -33,22 +33,44 @@ func assertRunFails(t *testing.T, input string, opts *cli.Flags) {
 }
 
 func Test_run_fakeJSON(t *testing.T) {
-	i, closeI, err := openInput(fakeJSONPath)
-	assert.NoError(t, err)
-	defer closeI()
+	t.Run("jq-like", func(t *testing.T) {
+		i, closeI, err := openInput(fakeJSONPath)
+		assert.NoError(t, err)
+		defer closeI()
 
-	var out bytes.Buffer
+		var out bytes.Buffer
 
-	opts := &cli.Flags{
-		PickPaths: []string{"result[0].name.middle"},
-		Compact:   true,
-	}
-	err = run(i, &out, opts)
-	assert.NoError(t, err)
+		opts := &cli.Flags{
+			PickPaths: []string{"result[0].name.middle"},
+			Compact:   true,
+		}
+		err = run(i, &out, opts)
+		assert.NoError(t, err)
 
-	got := out.String()
-	want := `{"result":[{"name":{"middle":"Micah"}}]}` + "\n"
-	assert.Equal(t, want, got)
+		got := out.String()
+		want := `"Micah"` + "\n" // Just the value in jq-like mode
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		i, closeI, err := openInput(fakeJSONPath)
+		assert.NoError(t, err)
+		defer closeI()
+
+		var out bytes.Buffer
+
+		opts := &cli.Flags{
+			PickPaths:         []string{"result[0].name.middle"},
+			Compact:           true,
+			PreserveHierarchy: true,
+		}
+		err = run(i, &out, opts)
+		assert.NoError(t, err)
+
+		got := out.String()
+		want := `{"result":[{"name":{"middle":"Micah"}}]}` + "\n"
+		assert.Equal(t, want, got)
+	})
 }
 
 func Test_run_EchoJSON_NoOps(t *testing.T) {
@@ -62,21 +84,45 @@ func Test_run_EchoJSON_NoOps(t *testing.T) {
 }
 
 func Test_run_PickTwoFields_JSONPretty(t *testing.T) {
-	in := strings.NewReader(`{"user":{"name":"alice","id":7,"role":"dev"},"z":0}`)
-	var out bytes.Buffer
+	input := `{"user":{"name":"alice","id":7,"role":"dev"},"z":0}`
 
-	opts := &cli.Flags{
-		PickPaths: []string{"user.name", "user.id"},
-		Compact:   false, // pretty
-	}
-	err := run(in, &out, opts)
-	assert.NoError(t, err)
+	t.Run("jq-like", func(t *testing.T) {
+		in := strings.NewReader(input)
+		var out bytes.Buffer
 
-	got := out.String()
-	// Pretty JSON with stable order (indent by printer). We don't enforce key order,
-	// but we can check substrings to be robust:
-	assert.Contains(t, got, `"name": "alice"`)
-	assert.Contains(t, got, `"id": 7`)
+		opts := &cli.Flags{
+			PickPaths: []string{"user.name", "user.id"},
+			Compact:   false, // pretty
+		}
+		err := run(in, &out, opts)
+		assert.NoError(t, err)
+
+		got := out.String()
+		// In jq-like mode, multiple paths are flattened to root level
+		assert.Contains(t, got, `"name": "alice"`)
+		assert.Contains(t, got, `"id": 7`)
+		// Should NOT contain "user" key in jq-like mode
+		assert.NotContains(t, got, `"user":`)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		in := strings.NewReader(input)
+		var out bytes.Buffer
+
+		opts := &cli.Flags{
+			PickPaths:         []string{"user.name", "user.id"},
+			Compact:           false, // pretty
+			PreserveHierarchy: true,
+		}
+		err := run(in, &out, opts)
+		assert.NoError(t, err)
+
+		got := out.String()
+		// In preserve-hierarchy mode, maintains structure
+		assert.Contains(t, got, `"user":`)
+		assert.Contains(t, got, `"name": "alice"`)
+		assert.Contains(t, got, `"id": 7`)
+	})
 }
 
 func Test_run_SetAndDelete(t *testing.T) {
@@ -95,8 +141,7 @@ func Test_run_SetAndDelete(t *testing.T) {
 }
 
 func Test_run_YAMLIn_JSONOut(t *testing.T) {
-	// YAML input with multi-doc; we’ll pick from each and print JSON (default)
-	in := strings.NewReader(`---
+	yamlInput := `---
 user:
   name: bob
   id: 1
@@ -104,21 +149,45 @@ user:
 user:
   name: eve
   id: 2
-`)
-	var out bytes.Buffer
+`
 
-	opts := &cli.Flags{
-		PickPaths: []string{"user.id"},
-		Compact:   true,
-		// ToFormat empty => json
-	}
-	err := run(in, &out, opts)
-	assert.NoError(t, err)
+	t.Run("jq-like", func(t *testing.T) {
+		// YAML input with multi-doc; we'll pick from each and print JSON (default)
+		in := strings.NewReader(yamlInput)
+		var out bytes.Buffer
 
-	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	assert.Equal(t, 2, len(lines), "expected 2 JSON docs")
-	assert.Equal(t, `{"user":{"id":1}}`, lines[0], "first doc")
-	assert.Equal(t, `{"user":{"id":2}}`, lines[1], "second doc")
+		opts := &cli.Flags{
+			PickPaths: []string{"user.id"},
+			Compact:   true,
+			// ToFormat empty => json
+		}
+		err := run(in, &out, opts)
+		assert.NoError(t, err)
+
+		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+		assert.Equal(t, 2, len(lines), "expected 2 JSON docs")
+		assert.Equal(t, `1`, lines[0], "first doc - just the value")
+		assert.Equal(t, `2`, lines[1], "second doc - just the value")
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		in := strings.NewReader(yamlInput)
+		var out bytes.Buffer
+
+		opts := &cli.Flags{
+			PickPaths:         []string{"user.id"},
+			Compact:           true,
+			PreserveHierarchy: true,
+			// ToFormat empty => json
+		}
+		err := run(in, &out, opts)
+		assert.NoError(t, err)
+
+		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+		assert.Equal(t, 2, len(lines), "expected 2 JSON docs")
+		assert.Equal(t, `{"user":{"id":1}}`, lines[0], "first doc")
+		assert.Equal(t, `{"user":{"id":2}}`, lines[1], "second doc")
+	})
 }
 
 func Test_run_JSONIn_YAMLOut(t *testing.T) {

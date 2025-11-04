@@ -58,7 +58,6 @@ Here's how `flow` compares to `jq` for common data extraction tasks:
 | **All array items** | `jq '.items[]'` | `flow -pick items[*]` |
 | **Nested array fields** | `jq '.items[].name'` | `flow -pick items[*].name` |
 | **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` |
-| **Pretty print with color** | `jq -C '.'` | `flow -color` |
 | **Read from file** | `jq '.' < file.json` or `jq '.' file.json` | `flow -in file.json` |
 
 **Key differences:**
@@ -66,6 +65,7 @@ Here's how `flow` compares to `jq` for common data extraction tasks:
 - **Learning curve**: `jq` requires learning its DSL; `flow` is immediately intuitive
 - **Formats**: `jq` is JSON-only (needs `yq` for YAML); `flow` handles both with auto-detection
 - **Streaming**: Both support streaming, but `flow` does it by default without special flags
+- **Output**: `flow` now outputs values just like `jq` (e.g., `-pick user.name` returns just `"alice"`, not `{"user": {"name": "alice"}}`)
 
 ## ⚙️ Usage
 
@@ -73,15 +73,27 @@ Here's how `flow` compares to `jq` for common data extraction tasks:
 
 Use the `-pick` flag to extract one or more fields from your data. You can use dot notation to access nested fields.
 
+**By default, `flow` outputs values like `jq`** - extracting just the value without preserving the full path structure:
+
 ```bash
-# Pick a single field
-cat data.json | flow -pick user.name
+# Pick a single field - outputs just the value
+echo '{"user":{"name":"alice","age":30}}' | flow -pick user.name
+# Output: "alice"
 
-# Pick multiple fields
-cat data.json | flow -pick user.name -pick user.id
+# Pick multiple fields - outputs flattened object
+echo '{"user":{"name":"alice","id":7}}' | flow -pick user.name -pick user.id
+# Output: {"name": "alice", "id": 7}
 
-# Pick multiple fields by wildcard
-flow -in data.yaml -pick items[*].name
+# Pick with wildcard - outputs array of values
+echo '{"items":[{"name":"a"},{"name":"b"}]}' | flow -pick 'items[*].name'
+# Output: ["a", "b"]
+```
+
+**Backward compatibility:** Use `--preserve-hierarchy` to maintain the full path structure (legacy behavior):
+
+```bash
+echo '{"user":{"name":"alice"}}' | flow -pick user.name --preserve-hierarchy
+# Output: {"user": {"name": "alice"}}
 ```
 
 ### Setting Fields

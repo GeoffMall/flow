@@ -8,7 +8,8 @@ import (
 )
 
 func TestPick_EmptyPaths(t *testing.T) {
-	pick := NewPick([]string{})
+	// Empty paths should return input as-is in both modes
+	pick := NewPick([]string{}, false)
 	input := map[string]any{"user": "alice", "id": 123}
 	result, err := pick.Apply(input)
 	require.NoError(t, err)
@@ -16,16 +17,25 @@ func TestPick_EmptyPaths(t *testing.T) {
 }
 
 func TestPick_SimplePath(t *testing.T) {
-	pick := NewPick([]string{"name"})
 	input := map[string]any{"name": "alice", "age": 30}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{"name": "alice"}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, "alice", result) // JUST THE VALUE
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{"name": "alice"}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_NestedPath(t *testing.T) {
-	pick := NewPick([]string{"user.name"})
 	input := map[string]any{
 		"user": map[string]any{
 			"name": "alice",
@@ -33,18 +43,28 @@ func TestPick_NestedPath(t *testing.T) {
 		},
 		"id": 123,
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"user": map[string]any{
-			"name": "alice",
-		},
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"user.name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, "alice", result) // JUST THE VALUE
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"user.name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"user": map[string]any{
+				"name": "alice",
+			},
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_DeeplyNestedPath(t *testing.T) {
-	pick := NewPick([]string{"a.b.c.d.e"})
 	input := map[string]any{
 		"a": map[string]any{
 			"b": map[string]any{
@@ -57,37 +77,57 @@ func TestPick_DeeplyNestedPath(t *testing.T) {
 			},
 		},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"a": map[string]any{
-			"b": map[string]any{
-				"c": map[string]any{
-					"d": map[string]any{
-						"e": "value",
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"a.b.c.d.e"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, "value", result) // JUST THE VALUE
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"a.b.c.d.e"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"a": map[string]any{
+				"b": map[string]any{
+					"c": map[string]any{
+						"d": map[string]any{
+							"e": "value",
+						},
 					},
 				},
 			},
-		},
-	}
-	assert.Equal(t, expected, result)
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_ArrayIndex(t *testing.T) {
-	pick := NewPick([]string{"items[0]"})
 	input := map[string]any{
 		"items": []any{"first", "second", "third"},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"items": []any{"first"},
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[0]"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, "first", result) // JUST THE VALUE
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[0]"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"items": []any{"first"},
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_ArrayIndexNested(t *testing.T) {
-	pick := NewPick([]string{"items[1].name"})
 	input := map[string]any{
 		"items": []any{
 			map[string]any{"name": "first", "id": 1},
@@ -95,19 +135,29 @@ func TestPick_ArrayIndexNested(t *testing.T) {
 			map[string]any{"name": "third", "id": 3},
 		},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"items": []any{
-			nil,
-			map[string]any{"name": "second"},
-		},
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[1].name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, "second", result) // JUST THE VALUE
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[1].name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"items": []any{
+				nil,
+				map[string]any{"name": "second"},
+			},
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_WildcardExpansion(t *testing.T) {
-	pick := NewPick([]string{"items[*].name"})
 	input := map[string]any{
 		"items": []any{
 			map[string]any{"name": "alice", "age": 30},
@@ -115,80 +165,149 @@ func TestPick_WildcardExpansion(t *testing.T) {
 			map[string]any{"name": "charlie", "age": 35},
 		},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"items": []any{
-			map[string]any{"name": "alice"},
-			map[string]any{"name": "bob"},
-			map[string]any{"name": "charlie"},
-		},
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Wildcard in single-pick mode returns array of values
+		expected := []any{"alice", "bob", "charlie"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"items": []any{
+				map[string]any{"name": "alice"},
+				map[string]any{"name": "bob"},
+				map[string]any{"name": "charlie"},
+			},
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_WildcardMultipleFields(t *testing.T) {
-	pick := NewPick([]string{"users[*].name", "users[*].email"})
 	input := map[string]any{
 		"users": []any{
 			map[string]any{"name": "alice", "email": "alice@example.com", "age": 30},
 			map[string]any{"name": "bob", "email": "bob@example.com", "age": 25},
 		},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"users": []any{
-			map[string]any{"name": "alice", "email": "alice@example.com"},
-			map[string]any{"name": "bob", "email": "bob@example.com"},
-		},
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"users[*].name", "users[*].email"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Multiple wildcards in multi-pick mode returns object with arrays
+		expected := map[string]any{
+			"name":  []any{"alice", "bob"},
+			"email": []any{"alice@example.com", "bob@example.com"},
+		}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"users[*].name", "users[*].email"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"users": []any{
+				map[string]any{"name": "alice", "email": "alice@example.com"},
+				map[string]any{"name": "bob", "email": "bob@example.com"},
+			},
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_MultiplePaths(t *testing.T) {
-	pick := NewPick([]string{"name", "email"})
 	input := map[string]any{
 		"name":  "alice",
 		"email": "alice@example.com",
 		"age":   30,
 		"city":  "NYC",
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"name":  "alice",
-		"email": "alice@example.com",
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"name", "email"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Multiple paths returns flattened object (same as hierarchy in this case)
+		expected := map[string]any{
+			"name":  "alice",
+			"email": "alice@example.com",
+		}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"name", "email"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"name":  "alice",
+			"email": "alice@example.com",
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_NonExistentPath(t *testing.T) {
-	pick := NewPick([]string{"missing.path"})
 	input := map[string]any{"name": "alice"}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"missing.path"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for missing paths (jq behavior)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"missing.path"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_MixedExistingAndNonExisting(t *testing.T) {
-	pick := NewPick([]string{"name", "missing", "age"})
 	input := map[string]any{
 		"name": "alice",
 		"age":  30,
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"name": "alice",
-		"age":  30,
-	}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"name", "missing", "age"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Missing paths are skipped in multi-pick
+		expected := map[string]any{
+			"name": "alice",
+			"age":  30,
+		}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"name", "missing", "age"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"name": "alice",
+			"age":  30,
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_InvalidPath_Empty(t *testing.T) {
-	pick := NewPick([]string{""})
+	// Error tests - behavior is the same in both modes
+	pick := NewPick([]string{""}, false)
 	input := map[string]any{"name": "alice"}
 	_, err := pick.Apply(input)
 	assert.Error(t, err)
@@ -196,7 +315,7 @@ func TestPick_InvalidPath_Empty(t *testing.T) {
 }
 
 func TestPick_InvalidPath_BadArraySyntax(t *testing.T) {
-	pick := NewPick([]string{"items[abc]"})
+	pick := NewPick([]string{"items[abc]"}, false)
 	input := map[string]any{"items": []any{1, 2, 3}}
 	_, err := pick.Apply(input)
 	assert.Error(t, err)
@@ -204,7 +323,7 @@ func TestPick_InvalidPath_BadArraySyntax(t *testing.T) {
 }
 
 func TestPick_InvalidPath_EmptyBrackets(t *testing.T) {
-	pick := NewPick([]string{"items[]"})
+	pick := NewPick([]string{"items[]"}, false)
 	input := map[string]any{"items": []any{1, 2, 3}}
 	_, err := pick.Apply(input)
 	assert.Error(t, err)
@@ -212,7 +331,7 @@ func TestPick_InvalidPath_EmptyBrackets(t *testing.T) {
 }
 
 func TestPick_InvalidPath_MissingCloseBracket(t *testing.T) {
-	pick := NewPick([]string{"items[0"})
+	pick := NewPick([]string{"items[0"}, false)
 	input := map[string]any{"items": []any{1, 2, 3}}
 	_, err := pick.Apply(input)
 	assert.Error(t, err)
@@ -220,7 +339,7 @@ func TestPick_InvalidPath_MissingCloseBracket(t *testing.T) {
 }
 
 func TestPick_InvalidPath_NegativeIndex(t *testing.T) {
-	pick := NewPick([]string{"items[-1]"})
+	pick := NewPick([]string{"items[-1]"}, false)
 	input := map[string]any{"items": []any{1, 2, 3}}
 	_, err := pick.Apply(input)
 	assert.Error(t, err)
@@ -228,76 +347,145 @@ func TestPick_InvalidPath_NegativeIndex(t *testing.T) {
 }
 
 func TestPick_ArrayIndexOutOfBounds(t *testing.T) {
-	pick := NewPick([]string{"items[10]"})
 	input := map[string]any{"items": []any{1, 2, 3}}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[10]"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for missing index
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[10]"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_TypeMismatch_ArrayAsMap(t *testing.T) {
-	pick := NewPick([]string{"items.name"})
 	input := map[string]any{"items": []any{1, 2, 3}}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items.name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for type mismatch
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items.name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_TypeMismatch_MapAsArray(t *testing.T) {
-	pick := NewPick([]string{"user[0]"})
 	input := map[string]any{"user": map[string]any{"name": "alice"}}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"user[0]"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for type mismatch
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"user[0]"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_ScalarInput(t *testing.T) {
-	pick := NewPick([]string{"name"})
 	input := "just a string"
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for scalar input
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_NilInput(t *testing.T) {
-	pick := NewPick([]string{"name"})
-	result, err := pick.Apply(nil)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, false)
+		result, err := pick.Apply(nil)
+		require.NoError(t, err)
+		assert.Nil(t, result) // Returns nil for nil input
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"name"}, true)
+		result, err := pick.Apply(nil)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_Description(t *testing.T) {
-	pick := NewPick([]string{"name", "email", "age"})
+	pick := NewPick([]string{"name", "email", "age"}, false)
 	desc := pick.Description()
 	assert.Equal(t, "pick(name, email, age)", desc)
 }
 
 func TestPick_EmptyWildcardArray(t *testing.T) {
-	pick := NewPick([]string{"items[*].name"})
 	input := map[string]any{"items": []any{}}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	// Empty array expands to no paths, so nothing is picked
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Empty wildcard returns empty array
+		assert.Equal(t, []any{}, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Empty array expands to no paths, so nothing is picked
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_WildcardNonArray(t *testing.T) {
-	pick := NewPick([]string{"items[*].name"})
 	input := map[string]any{"items": "not an array"}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{}
-	assert.Equal(t, expected, result)
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		assert.Equal(t, []any{}, result) // Empty array for non-array wildcard
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"items[*].name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_ComplexNestedWithWildcard(t *testing.T) {
-	pick := NewPick([]string{"org.teams[*].members[0].name"})
 	input := map[string]any{
 		"org": map[string]any{
 			"teams": []any{
@@ -316,29 +504,41 @@ func TestPick_ComplexNestedWithWildcard(t *testing.T) {
 			},
 		},
 	}
-	result, err := pick.Apply(input)
-	require.NoError(t, err)
-	expected := map[string]any{
-		"org": map[string]any{
-			"teams": []any{
-				map[string]any{
-					"members": []any{
-						map[string]any{"name": "alice"},
+
+	t.Run("jq-like", func(t *testing.T) {
+		pick := NewPick([]string{"org.teams[*].members[0].name"}, false)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		// Returns array of values
+		expected := []any{"alice", "charlie"}
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("preserve-hierarchy", func(t *testing.T) {
+		pick := NewPick([]string{"org.teams[*].members[0].name"}, true)
+		result, err := pick.Apply(input)
+		require.NoError(t, err)
+		expected := map[string]any{
+			"org": map[string]any{
+				"teams": []any{
+					map[string]any{
+						"members": []any{
+							map[string]any{"name": "alice"},
+						},
 					},
-				},
-				map[string]any{
-					"members": []any{
-						map[string]any{"name": "charlie"},
+					map[string]any{
+						"members": []any{
+							map[string]any{"name": "charlie"},
+						},
 					},
 				},
 			},
-		},
-	}
-	assert.Equal(t, expected, result)
+		}
+		assert.Equal(t, expected, result)
+	})
 }
 
 func TestPick_AllTypes(t *testing.T) {
-	pick := NewPick([]string{"string", "number", "boolean", "null", "array", "object"})
 	input := map[string]any{
 		"string":  "hello",
 		"number":  42.5,
@@ -348,6 +548,9 @@ func TestPick_AllTypes(t *testing.T) {
 		"object":  map[string]any{"nested": "value"},
 		"ignored": "this should not appear",
 	}
+
+	// Both modes have same behavior for multiple root-level picks
+	pick := NewPick([]string{"string", "number", "boolean", "null", "array", "object"}, false)
 	result, err := pick.Apply(input)
 	require.NoError(t, err)
 	expected := map[string]any{

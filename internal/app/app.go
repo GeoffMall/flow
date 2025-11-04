@@ -13,6 +13,8 @@ import (
 
 func Run() {
 	f := cli.ParseFlags()
+	// default to color
+	f.Color = true
 
 	in, inClose, err := openInput(f.InputFile)
 	if err != nil {
@@ -59,7 +61,7 @@ func buildPipeline(opts *cli.Flags) (*operation.Pipeline, error) {
 	var ops []operation.Operation
 
 	if len(opts.PickPaths) > 0 {
-		ops = append(ops, operation.NewPick(opts.PickPaths))
+		ops = append(ops, operation.NewPick(opts.PickPaths, opts.PreserveHierarchy))
 	}
 
 	if len(opts.SetPairs) > 0 {

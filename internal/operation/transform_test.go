@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewPipeline(t *testing.T) {
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	set, _ := NewSetFromPairs([]string{"age=30"})
 
 	pipe := NewPipeline(pick, set)
@@ -23,7 +23,7 @@ func TestPipeline_Empty(t *testing.T) {
 }
 
 func TestPipeline_NotEmpty(t *testing.T) {
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	pipe := NewPipeline(pick)
 	assert.False(t, pipe.Empty())
 }
@@ -32,7 +32,7 @@ func TestPipeline_Append(t *testing.T) {
 	pipe := NewPipeline()
 	assert.True(t, pipe.Empty())
 
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	pipe.Append(pick)
 	assert.False(t, pipe.Empty())
 	assert.Len(t, pipe.Ops, 1)
@@ -51,7 +51,7 @@ func TestPipeline_ApplyEmpty(t *testing.T) {
 }
 
 func TestPipeline_ApplySingleOp(t *testing.T) {
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	pipe := NewPipeline(pick)
 
 	input := map[string]any{"name": "alice", "age": 30}
@@ -63,7 +63,7 @@ func TestPipeline_ApplySingleOp(t *testing.T) {
 }
 
 func TestPipeline_ApplyMultipleOps(t *testing.T) {
-	pick := NewPick([]string{"name", "age"})
+	pick := NewPick([]string{"name", "age"}, true)
 	set, _ := NewSetFromPairs([]string{"city=NYC"})
 	pipe := NewPipeline(pick, set)
 
@@ -85,7 +85,7 @@ func TestPipeline_ApplyMultipleOps(t *testing.T) {
 
 func TestPipeline_ApplyChaining(t *testing.T) {
 	// Pick name and email, then delete email, then set age
-	pick := NewPick([]string{"name", "email"})
+	pick := NewPick([]string{"name", "email"}, true)
 	del := NewDelete([]string{"email"})
 	set, _ := NewSetFromPairs([]string{"age=30"})
 	pipe := NewPipeline(pick, del, set)
@@ -106,7 +106,7 @@ func TestPipeline_ApplyChaining(t *testing.T) {
 }
 
 func TestPipeline_ErrorInFirstOp(t *testing.T) {
-	pick := NewPick([]string{""}) // Invalid path
+	pick := NewPick([]string{""}, false) // Invalid path
 	pipe := NewPipeline(pick)
 
 	input := map[string]any{"name": "alice"}
@@ -120,9 +120,9 @@ func TestPipeline_ErrorInFirstOp(t *testing.T) {
 }
 
 func TestPipeline_ErrorInMiddleOp(t *testing.T) {
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	set, _ := NewSetFromPairs([]string{"age="}) // Valid but creates empty string
-	invalidPick := NewPick([]string{""})        // Invalid path
+	invalidPick := NewPick([]string{""}, false) // Invalid path
 	pipe := NewPipeline(pick, set, invalidPick)
 
 	input := map[string]any{"name": "alice"}
@@ -135,7 +135,7 @@ func TestPipeline_ErrorInMiddleOp(t *testing.T) {
 }
 
 func TestPipeline_ErrorUnwrap(t *testing.T) {
-	pick := NewPick([]string{""})
+	pick := NewPick([]string{""}, false)
 	pipe := NewPipeline(pick)
 
 	input := map[string]any{"name": "alice"}
@@ -309,7 +309,7 @@ func TestPipeline_SafeDesc_HandlesPanic(t *testing.T) {
 
 func TestPipeline_DefensiveCopy(t *testing.T) {
 	// Verify that NewPipeline makes a defensive copy
-	pick := NewPick([]string{"name"})
+	pick := NewPick([]string{"name"}, true)
 	set, _ := NewSetFromPairs([]string{"age=30"})
 
 	ops := []Operation{pick, set}
@@ -343,7 +343,7 @@ func TestPipeline_ComplexRealWorldScenario(t *testing.T) {
 	// 1. Pick specific fields from input
 	// 2. Delete sensitive fields
 	// 3. Add metadata
-	pick := NewPick([]string{"user.name", "user.email", "user.age"})
+	pick := NewPick([]string{"user.name", "user.email", "user.age"}, true)
 	del := NewDelete([]string{"user.password"}) // This won't exist after pick, but testing the flow
 	set, _ := NewSetFromPairs([]string{
 		"metadata.processed=true",

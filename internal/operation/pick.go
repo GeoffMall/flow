@@ -11,24 +11,163 @@ import (
 //   - "items[0].name"
 //   - "a.b[12].c"
 type Pick struct {
-	Paths []string
+	Paths             []string
+	PreserveHierarchy bool // if true, preserves full path structure (legacy behavior)
 }
 
-func NewPick(paths []string) *Pick { return &Pick{Paths: paths} }
+func NewPick(paths []string, preserveHierarchy bool) *Pick {
+	return &Pick{
+		Paths:             paths,
+		PreserveHierarchy: preserveHierarchy,
+	}
+}
 
 func (p *Pick) Description() string {
 	return "pick(" + strings.Join(p.Paths, ", ") + ")"
 }
 
-// Apply returns a new document containing only the requested paths (merged).
-// If a path doesn't exist in the source, it's ignored.
+// Apply returns a document based on the requested paths and mode.
+// In jq-like mode (default): returns raw values or flattened objects.
+// In preserve-hierarchy mode: returns full path structure (legacy behavior).
 func (p *Pick) Apply(v any) (any, error) {
 	// If no paths requested, return input as-is.
 	if len(p.Paths) == 0 {
 		return v, nil
 	}
 
-	// The result is generally an object; if a path targets the root (""), we’ll just return v.
+	// Legacy behavior: preserve full hierarchy
+	if p.PreserveHierarchy {
+		return p.applyWithHierarchy(v)
+	}
+
+	// New jq-like behavior
+	if len(p.Paths) == 1 {
+		return p.applySinglePath(v, p.Paths[0])
+	}
+	return p.applyMultiplePaths(v)
+}
+
+// applySinglePath extracts a single path and returns just the value (or array for wildcards).
+// This matches jq behavior: jq '.result[0].domain' returns just "pure-skin.name"
+func (p *Pick) applySinglePath(v any, pathStr string) (any, error) {
+	// Check if path contains wildcard
+	hasWildcard := strings.Contains(pathStr, "[*]")
+
+	// Expand wildcards
+	expandedPaths, err := expandWildcardPaths(v, pathStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --pick %q: %w", pathStr, err)
+	}
+
+	// Wildcard that expanded to 0 items - return empty array
+	if hasWildcard && len(expandedPaths) == 0 {
+		return []any{}, nil
+	}
+
+	// No wildcards or single concrete path
+	if len(expandedPaths) <= 1 {
+		segs, err := parsePath(pathStr)
+		if err != nil {
+			return nil, err
+		}
+		val, ok := getAtPath(v, segs)
+		if !ok {
+			return nil, nil // Return null for missing paths (jq behavior)
+		}
+		return val, nil // JUST THE VALUE
+	}
+
+	// Wildcard produced multiple values - return array
+	var results []any
+	for _, expandedPath := range expandedPaths {
+		segs, err := parsePath(expandedPath)
+		if err != nil {
+			return nil, err
+		}
+		val, ok := getAtPath(v, segs)
+		if ok {
+			results = append(results, val)
+		}
+	}
+	return results, nil
+}
+
+// applyMultiplePaths extracts multiple paths and returns a flattened object.
+// Example: --pick user.name --pick user.age returns {"name": "alice", "age": 30}
+func (p *Pick) applyMultiplePaths(v any) (any, error) {
+	out := make(map[string]any)
+
+	for _, pathStr := range p.Paths {
+		expandedPaths, err := expandWildcardPaths(v, pathStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --pick %q: %w", pathStr, err)
+		}
+
+		if len(expandedPaths) == 0 {
+			expandedPaths = []string{pathStr}
+		}
+
+		// Wildcard case: collect into array
+		if len(expandedPaths) > 1 {
+			if err := p.addWildcardResults(v, pathStr, expandedPaths, out); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		// Single path case
+		if err := p.addSinglePathResult(v, pathStr, out); err != nil {
+			return nil, err
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, nil // Return null if nothing found
+	}
+
+	return out, nil
+}
+
+// addWildcardResults collects wildcard expansion results into an array
+func (p *Pick) addWildcardResults(v any, pathStr string, expandedPaths []string, out map[string]any) error {
+	var results []any
+	for _, expandedPath := range expandedPaths {
+		segs, err := parsePath(expandedPath)
+		if err != nil {
+			return err
+		}
+		val, ok := getAtPath(v, segs)
+		if ok {
+			results = append(results, val)
+		}
+	}
+	if len(results) > 0 {
+		finalKey := getFinalKeyFromPath(pathStr)
+		out[finalKey] = results
+	}
+	return nil
+}
+
+// addSinglePathResult adds a single path's value to the output with flattened key
+func (p *Pick) addSinglePathResult(v any, pathStr string, out map[string]any) error {
+	segs, err := parsePath(pathStr)
+	if err != nil {
+		return err
+	}
+
+	val, ok := getAtPath(v, segs)
+	if !ok {
+		return nil // Skip missing paths in multi-pick
+	}
+
+	// Extract just the final key name for flattening
+	finalKey := getFinalKey(segs)
+	out[finalKey] = val
+	return nil
+}
+
+// applyWithHierarchy implements the legacy behavior that preserves full path structure.
+func (p *Pick) applyWithHierarchy(v any) (any, error) {
 	out := make(map[string]any)
 
 	for _, raw := range p.Paths {
@@ -55,13 +194,33 @@ func (p *Pick) Apply(v any) (any, error) {
 				continue
 			}
 
-			// Merge into output at the same path
+			// Merge into output at the same path (preserving hierarchy)
 			setAtPath(out, segs, val)
 		}
 	}
 
 	// If nothing was picked, return empty object.
 	return out, nil
+}
+
+// getFinalKey extracts the last key name from a parsed path (for flattening).
+// Example: segments for "user.name" -> returns "name"
+func getFinalKey(segs []segment) string {
+	if len(segs) == 0 {
+		return ""
+	}
+	lastSeg := segs[len(segs)-1]
+	return lastSeg.key
+}
+
+// getFinalKeyFromPath extracts the last key name from a path string.
+// Handles wildcards: "items[*].name" -> "name"
+func getFinalKeyFromPath(pathStr string) string {
+	// Remove wildcard notation
+	pathStr = strings.ReplaceAll(pathStr, "[*]", "")
+	// Get last segment after last dot
+	parts := strings.Split(pathStr, ".")
+	return parts[len(parts)-1]
 }
 
 // ----------------------------- Get value -----------------------------
