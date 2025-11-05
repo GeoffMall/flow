@@ -20,8 +20,17 @@ builds:
     goarch: [amd64, arm64]
 
 archives:
-  - id: release
-    formats: [tar.gz, zip]
+  # Unix archives (tar.gz) for Homebrew and Linux/macOS users
+  - id: unix
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+  # Windows archives (zip) for Scoop and Windows users
+  - id: windows
+    format: zip
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
@@ -43,12 +52,13 @@ changelog:
 # Homebrew tap
 brews:
   -
+    ids: [unix]
     name: flow
     repository:
       owner: GeoffMall
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
-    folder: Formula
+    directory: Formula
     homepage: https://github.com/GeoffMall/flow
     description: "A streaming JSON & YAML processor CLI tool"
     license: "MIT"
@@ -58,12 +68,14 @@ brews:
       bin.install "flow"
 
 # Scoop bucket (Windows)
-scoop:
-  bucket:
-    owner: GeoffMall
-    name: scoop-bucket
-    token: "{{ .Env.GITHUB_TOKEN }}"
-  folder: bucket
-  homepage: https://github.com/GeoffMall/flow
-  description: "A streaming JSON & YAML processor CLI tool"
-  license: MIT
+scoops:
+  -
+    ids: [windows]
+    repository:
+      owner: GeoffMall
+      name: scoop-bucket
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    directory: repository
+    homepage: https://github.com/GeoffMall/flow
+    description: "A streaming JSON & YAML processor CLI tool"
+    license: MIT
