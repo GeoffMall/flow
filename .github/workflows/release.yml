@@ -35,7 +35,7 @@ jobs:
       # Use the semantic-release action to get useful outputs (version, published flag)
       - name: Semantic Release
         id: semrel
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v5
         with:
           dry_run: ${{ inputs.dry_run }}
         env:
@@ -50,7 +50,7 @@ jobs:
 
       # Build and upload multi-OS/arch archives to the release created by semantic-release
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           check-latest: true
