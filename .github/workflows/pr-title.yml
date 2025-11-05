@@ -9,38 +9,46 @@ on:
       - reopened
 
 jobs:
-  check-title:
+  validate-title:
     name: Validate PR Title
     runs-on: ubuntu-latest
+    # Only run for PRs targeting the dev branch
+    if: github.event.pull_request.base.ref == 'dev'
     steps:
       - name: Check PR title format
-        uses: amannn/action-semantic-pull-request@v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # Configure which types are allowed
-          types: |
-            feat
-            fix
-            docs
-            test
-            refactor
-            chore
-            perf
-            ci
-            build
-            style
-          # Require scope (optional - set to false if you don't want to require it)
-          requireScope: false
-          # Allow multiple types (e.g., "feat!: breaking change")
-          subjectPattern: ^(?![A-Z]).+$
-          subjectPatternError: |
-            The subject "{subject}" found in the pull request title "{title}"
-            didn't match the configured pattern. Please ensure that the subject
-            doesn't start with an uppercase character.
-          # Custom validation message
-          validateSingleCommit: false
-          # Ignore validation for PRs from main to dev, or dev to main (merges between branches)
-          ignoreLabels: |
-            merge
-            dependencies
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Checking PR title: $PR_TITLE"
+
+          # Regex pattern: type: description
+          # Valid types: feat, fix, docs, test, refactor, chore, perf, ci, build, style
+          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|test|refactor|chore|perf|ci|build|style): .+$"; then
+            echo ""
+            echo "❌ Invalid PR title format!"
+            echo ""
+            echo "PR title must follow the format: 'type: description'"
+            echo ""
+            echo "Valid types:"
+            echo "  - feat:     New features"
+            echo "  - fix:      Bug fixes"
+            echo "  - docs:     Documentation changes"
+            echo "  - test:     Test additions or changes"
+            echo "  - refactor: Code refactoring"
+            echo "  - chore:    Maintenance tasks"
+            echo "  - perf:     Performance improvements"
+            echo "  - ci:       CI/CD changes"
+            echo "  - build:    Build system changes"
+            echo "  - style:    Code style changes"
+            echo ""
+            echo "Examples:"
+            echo "  ✅ feat: add CSV format support"
+            echo "  ✅ fix: resolve parser crash on empty input"
+            echo "  ✅ docs: update installation instructions"
+            echo ""
+            echo "Your title: $PR_TITLE"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ PR title is valid!"
