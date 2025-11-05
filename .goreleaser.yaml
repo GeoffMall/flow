@@ -57,7 +57,7 @@ brews:
     repository:
       owner: GeoffMall
       name: homebrew-tap
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.RELEASE_TOKEN }}"
     directory: Formula
     homepage: https://github.com/GeoffMall/flow
     description: "A streaming JSON & YAML processor CLI tool"
@@ -74,7 +74,7 @@ scoops:
     repository:
       owner: GeoffMall
       name: scoop-bucket
-      token: "{{ .Env.GITHUB_TOKEN }}"
+      token: "{{ .Env.RELEASE_TOKEN }}"
     directory: repository
     homepage: https://github.com/GeoffMall/flow
     description: "A streaming JSON & YAML processor CLI tool"

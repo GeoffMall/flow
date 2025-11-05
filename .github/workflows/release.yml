@@ -68,5 +68,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           # Force the tag/version to match semantic-release output
           GORELEASER_CURRENT_TAG: v${{ steps.semrel.outputs.new_release_version }}
