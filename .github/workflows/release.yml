@@ -50,7 +50,7 @@ jobs:
 
       # Build and upload multi-OS/arch archives to the release created by semantic-release
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           check-latest: true
