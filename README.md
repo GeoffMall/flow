@@ -22,19 +22,53 @@ This is an alternative to tools like [jq](https://stedolan.github.io/jq/), and e
 
 ## Installation
 
+### macOS & Linux
+
+#### Homebrew (Recommended)
+```bash
+brew install GeoffMall/tap/flow
+```
+
+#### Install Script
+```bash
+curl -fsSL https://raw.githubusercontent.com/GeoffMall/flow/main/install.sh | sh
+```
+
+#### Go Install
 ```bash
 go install github.com/GeoffMall/flow@latest
 ```
 
-or build from source:
+#### Manual Download
+Download the latest release for your platform from the [releases page](https://github.com/GeoffMall/flow/releases).
+
+**macOS users:** If you see an "untrusted developer" warning, run:
+```bash
+xattr -d com.apple.quarantine /usr/local/bin/flow
+```
+
+### Windows
+
+#### Scoop (Recommended)
+```powershell
+scoop bucket add flow https://github.com/GeoffMall/scoop-bucket
+scoop install flow
+```
+
+#### Manual Download
+1. Download `flow_*_windows_amd64.zip` from the [releases page](https://github.com/GeoffMall/flow/releases)
+2. Extract the zip file
+3. Add the `flow.exe` to your PATH
+
+### Build from Source
 
 ```bash
 git clone https://github.com/GeoffMall/flow.git
 cd flow
-go build -o flow
+make build
+# Or for all platforms:
+make build-all
 ```
-
-or download pre-built binaries from the releases page.
 
 ## Key Features
 

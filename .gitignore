@@ -6,3 +6,15 @@
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+
+# Build artifacts
+flow
+flow.exe
+*.exe
+dist/
+coverage.out
+
+# Release temp files
+*.tar.gz
+*.zip
+checksums.txt

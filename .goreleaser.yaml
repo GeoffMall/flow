@@ -16,12 +16,12 @@ builds:
       - -X github.com/GeoffMall/flow/internal/version.Version={{.Version}}
       - -X github.com/GeoffMall/flow/internal/version.GitCommit={{.ShortCommit}}
       - -X github.com/GeoffMall/flow/internal/version.BuildDate={{.Date}}
-    goos: [linux, darwin]
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
 archives:
   - id: release
-    formats: [tar.gz]
+    formats: [tar.gz, zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
@@ -29,6 +29,41 @@ archives:
 
 checksum:
   name_template: "checksums.txt"
+  algorithm: sha256
 
 changelog:
   use: github
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+# Homebrew tap
+brews:
+  -
+    name: flow
+    repository:
+      owner: GeoffMall
+      name: homebrew-tap
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    folder: Formula
+    homepage: https://github.com/GeoffMall/flow
+    description: "A streaming JSON & YAML processor CLI tool"
+    license: "MIT"
+    test: |
+      system "#{bin}/flow", "--version"
+    install: |
+      bin.install "flow"
+
+# Scoop bucket (Windows)
+scoop:
+  bucket:
+    owner: GeoffMall
+    name: scoop-bucket
+    token: "{{ .Env.GITHUB_TOKEN }}"
+  folder: bucket
+  homepage: https://github.com/GeoffMall/flow
+  description: "A streaming JSON & YAML processor CLI tool"
+  license: MIT
