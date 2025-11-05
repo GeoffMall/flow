@@ -214,6 +214,25 @@ flow -in input.json -no-color
 - [ ] Advanced querying (e.g., filtering arrays)
 - [ ] More supported formats (CSV, XML, Avro, Parquet)
 
+  Add this to your README.md:
+
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+- Setting up your development environment
+- Creating feature branches from `dev`
+- PR title requirements
+- Code quality standards
+
+When you set up branch protection for dev:
+1. Under "Require status checks to pass before merging"
+2. Search for and add: Validate PR Title
+3. This will prevent merging PRs with invalid titles
+
+Once you push these files and create a test PR:
+- Try creating a PR with title: test: verify pr title validation
+- The check should pass ✅
+- Try editing the title to: Test PR title validation
+- The check should fail ❌
+
+The PR title workflow will run on every PR (opened, edited, or synchronized), ensuring all PRs to dev follow the naming convention!

@@ -1,0 +1,54 @@
+name: PR Title Check
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+jobs:
+  validate-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    # Only run for PRs targeting the dev branch
+    if: github.event.pull_request.base.ref == 'dev'
+    steps:
+      - name: Check PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Checking PR title: $PR_TITLE"
+
+          # Regex pattern: type: description
+          # Valid types: feat, fix, docs, test, refactor, chore, perf, ci, build, style
+          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|test|refactor|chore|perf|ci|build|style): .+$"; then
+            echo ""
+            echo "❌ Invalid PR title format!"
+            echo ""
+            echo "PR title must follow the format: 'type: description'"
+            echo ""
+            echo "Valid types:"
+            echo "  - feat:     New features"
+            echo "  - fix:      Bug fixes"
+            echo "  - docs:     Documentation changes"
+            echo "  - test:     Test additions or changes"
+            echo "  - refactor: Code refactoring"
+            echo "  - chore:    Maintenance tasks"
+            echo "  - perf:     Performance improvements"
+            echo "  - ci:       CI/CD changes"
+            echo "  - build:    Build system changes"
+            echo "  - style:    Code style changes"
+            echo ""
+            echo "Examples:"
+            echo "  ✅ feat: add CSV format support"
+            echo "  ✅ fix: resolve parser crash on empty input"
+            echo "  ✅ docs: update installation instructions"
+            echo ""
+            echo "Your title: $PR_TITLE"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ PR title is valid!"
