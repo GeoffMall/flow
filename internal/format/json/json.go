@@ -1,5 +1,5 @@
 // Package json implements JSON format support for flow.
-// It provides detection, parsing, and formatting of JSON data with:
+// It provides parsing and formatting of JSON data with:
 //   - Streaming array element processing
 //   - Concatenated JSON document support
 //   - ANSI color output for terminal display
@@ -18,11 +18,6 @@ type Format struct{}
 // Name returns the format identifier.
 func (f *Format) Name() string {
 	return "json"
-}
-
-// Detector returns a JSON format detector.
-func (f *Format) Detector() format.Detector {
-	return &Detector{}
 }
 
 // NewParser creates a new JSON streaming parser.

@@ -28,6 +28,7 @@ type Flags struct {
 	Color             bool     // pretty colorized output (internal use)
 	NoColor           bool     // disable colorized output
 	Compact           bool     // minified output
+	FromFormat        string   // input format: json | yaml (defaults to json, or auto-detected from file extension)
 	ToFormat          string   // convert output format: json | yaml
 	PreserveHierarchy bool     // preserve full path structure in pick output (legacy behavior)
 	ShowHelp          bool     // show help and exit
@@ -54,6 +55,7 @@ func ParseFlags() *Flags {
 	flag.StringVar(&f.OutputFile, "out", "", "Path to output file (optional, defaults to stdout)")
 	flag.BoolVar(&f.NoColor, "no-color", false, "Disable colorized output")
 	flag.BoolVar(&f.Compact, "compact", false, "Minify output instead of pretty-printing")
+	flag.StringVar(&f.FromFormat, "from", "", "Input format: json | yaml (defaults to json, or auto-detected from .yaml/.yml extension)")
 	flag.StringVar(&f.ToFormat, "to", "", "Convert output format: json | yaml")
 	flag.BoolVar(&f.PreserveHierarchy, "preserve-hierarchy", false, "Preserve full path structure in pick output (default: false, outputs values like jq)")
 	flag.BoolVar(&f.ShowHelp, "help", false, "Show usage")
@@ -79,7 +81,13 @@ func ParseFlags() *Flags {
 	f.SetPairs = setPairs
 	f.DeletePaths = deletePaths
 
-	// Additional validation can be added here if needed
+	// Validate format flags
+	if f.FromFormat != "" && f.FromFormat != "json" && f.FromFormat != "yaml" {
+		printLinef("Error: invalid format '%s' for --from flag. Supported formats are 'json' and 'yaml'.\n", f.FromFormat)
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	if f.ToFormat != "" && f.ToFormat != "json" && f.ToFormat != "yaml" {
 		printLinef("Error: invalid format '%s' for --to flag. Supported formats are 'json' and 'yaml'.\n", f.ToFormat)
 		flag.Usage()

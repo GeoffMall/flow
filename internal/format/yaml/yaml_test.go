@@ -9,75 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:funlen // Test table is intentionally comprehensive
-func TestDetector(t *testing.T) {
-	tests := []struct {
-		name       string
-		input      string
-		wantScore  int
-		wantIsYAML bool
-	}{
-		{
-			name:       "yaml directive",
-			input:      "%YAML 1.2\n---\nkey: value",
-			wantScore:  100,
-			wantIsYAML: true,
-		},
-		{
-			name:       "document separator",
-			input:      "---\nkey: value",
-			wantScore:  100,
-			wantIsYAML: true,
-		},
-		{
-			name:       "key value style",
-			input:      "name: Alice\nage: 30",
-			wantScore:  90,
-			wantIsYAML: true,
-		},
-		{
-			name:       "whitespace then yaml",
-			input:      "  \n  key: value",
-			wantScore:  90,
-			wantIsYAML: true,
-		},
-		{
-			name:       "json object",
-			input:      `{"key": "value"}`,
-			wantScore:  0,
-			wantIsYAML: false,
-		},
-		{
-			name:       "json array",
-			input:      `[1, 2, 3]`,
-			wantScore:  0,
-			wantIsYAML: false,
-		},
-		{
-			name:       "empty input",
-			input:      "",
-			wantScore:  0,
-			wantIsYAML: false,
-		},
-	}
-
-	detector := &Detector{}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			score, err := detector.Detect([]byte(tt.input))
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantScore, score)
-
-			if tt.wantIsYAML {
-				assert.Greater(t, score, 0, "should detect as YAML")
-			} else {
-				assert.Equal(t, 0, score, "should not detect as YAML")
-			}
-		})
-	}
-}
-
 func TestParser_SingleDocument(t *testing.T) {
 	input := `name: Alice
 age: 30`
@@ -197,12 +128,6 @@ func TestFormat_Integration(t *testing.T) {
 
 	// Test name
 	assert.Equal(t, "yaml", fmt.Name())
-
-	// Test detector
-	detector := fmt.Detector()
-	score, err := detector.Detect([]byte("key: value"))
-	assert.NoError(t, err)
-	assert.Greater(t, score, 0)
 
 	// Test parser
 	input := strings.NewReader("name: Alice\nage: 30")
