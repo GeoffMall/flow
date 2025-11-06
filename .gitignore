@@ -18,3 +18,11 @@ coverage.out
 *.tar.gz
 *.zip
 checksums.txt
+
+# Secrets and credentials
+.env
+.env.*
+*.pem
+*.key
+*_secret
+*_credential
