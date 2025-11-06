@@ -176,7 +176,7 @@ See the [CLAUDE.md](./CLAUDE.md#adding-new-features) file for detailed instructi
 1. Create new file in `internal/operation/` (e.g., `filter.go`)
 2. Implement the `Operation` interface
 3. Add corresponding CLI flag in `internal/cli/flag.go`
-4. Update `buildPipeline()` in `internal/app/app.go`
+4. Update `buildPipeline()` in `internal/runner/app.go`
 5. Write comprehensive tests
 6. Update documentation
 

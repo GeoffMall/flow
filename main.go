@@ -1,7 +1,7 @@
 package main
 
-import "github.com/GeoffMall/flow/internal/app"
+import "github.com/GeoffMall/flow/internal/runner"
 
 func main() {
-	app.Run()
+	runner.Run()
 }
