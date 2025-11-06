@@ -55,7 +55,7 @@ func ParseFlags() *Flags {
 	flag.StringVar(&f.OutputFile, "out", "", "Path to output file (optional, defaults to stdout)")
 	flag.BoolVar(&f.NoColor, "no-color", false, "Disable colorized output")
 	flag.BoolVar(&f.Compact, "compact", false, "Minify output instead of pretty-printing")
-	flag.StringVar(&f.FromFormat, "from", "", "Input format: json | yaml (defaults to json, or auto-detected from .yaml/.yml extension)")
+	flag.StringVar(&f.FromFormat, "from", "", "Input format: json | yaml (if not specified, detected from file extension or defaults to json)")
 	flag.StringVar(&f.ToFormat, "to", "", "Convert output format: json | yaml")
 	flag.BoolVar(&f.PreserveHierarchy, "preserve-hierarchy", false, "Preserve full path structure in pick output (default: false, outputs values like jq)")
 	flag.BoolVar(&f.ShowHelp, "help", false, "Show usage")
