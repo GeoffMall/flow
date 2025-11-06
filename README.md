@@ -90,7 +90,7 @@ Here's how `flow` compares to `jq` for common data extraction tasks:
 | **Array element** | `jq '.items[0]'` | `flow -pick items[0]` |
 | **All array items** | `jq '.items[]'` | `flow -pick items[*]` |
 | **Nested array fields** | `jq '.items[].name'` | `flow -pick items[*].name` |
-| **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` (auto-detected from .yaml extension) |
+| **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` (YAML input auto-detected from .yaml extension) |
 | **Read from file** | `jq '.' < file.json` or `jq '.' file.json` | `flow -in file.json` |
 
 **Key differences:**
