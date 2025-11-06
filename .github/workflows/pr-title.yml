@@ -21,13 +21,14 @@ jobs:
         run: |
           echo "Checking PR title: $PR_TITLE"
 
-          # Regex pattern: type: description
+          # Regex pattern: type(scope): description or type: description
+          # Scope is optional and can contain lowercase letters, numbers, and hyphens
           # Valid types: feat, fix, docs, test, refactor, chore, perf, ci, build, style
-          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|test|refactor|chore|perf|ci|build|style): .+$"; then
+          if ! echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|test|refactor|chore|perf|ci|build|style)(\([a-z0-9-]+\))?: .+$"; then
             echo ""
             echo "❌ Invalid PR title format!"
             echo ""
-            echo "PR title must follow the format: 'type: description'"
+            echo "PR title must follow the format: 'type: description' or 'type(scope): description'"
             echo ""
             echo "Valid types:"
             echo "  - feat:     New features"
@@ -43,7 +44,9 @@ jobs:
             echo ""
             echo "Examples:"
             echo "  ✅ feat: add CSV format support"
+            echo "  ✅ feat(parser): add streaming support"
             echo "  ✅ fix: resolve parser crash on empty input"
+            echo "  ✅ chore(deps): update dependencies"
             echo "  ✅ docs: update installation instructions"
             echo ""
             echo "Your title: $PR_TITLE"
