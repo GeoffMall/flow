@@ -4,17 +4,16 @@
 //
 // The format package defines core interfaces that all formats must implement:
 //
-//  1. Detector - Analyzes input bytes to determine if data matches a format
-//  2. Parser - Streams documents from input without full buffering
-//  3. Formatter - Writes documents to output with optional styling
-//  4. Format - Combines the above into a complete format implementation
+//  1. Parser - Streams documents from input without full buffering
+//  2. Formatter - Writes documents to output with optional styling
+//  3. Format - Combines the above into a complete format implementation
 //
 // # Adding a New Format
 //
 // To add support for a new format:
 //
 //  1. Create a new package under internal/format/yourformat/
-//  2. Implement Detector, Parser, and Formatter interfaces
+//  2. Implement Parser and Formatter interfaces
 //  3. Create a Format implementation that wires them together
 //  4. Register the format in init() using format.Register()
 //
@@ -33,29 +32,16 @@ import (
 )
 
 // Format represents a data format (JSON, YAML, CSV, Parquet, Avro, etc.).
-// It provides format detection, parsing, and formatting capabilities.
+// It provides parsing and formatting capabilities.
 type Format interface {
 	// Name returns the format identifier (e.g., "json", "yaml", "csv")
 	Name() string
-
-	// Detector returns a detector that can identify this format from input bytes
-	Detector() Detector
 
 	// NewParser creates a streaming parser for this format
 	NewParser(r io.Reader) (Parser, error)
 
 	// NewFormatter creates a formatter for output with the given options
 	NewFormatter(w io.Writer, opts FormatterOptions) Formatter
-}
-
-// Detector analyzes input bytes to determine if they match a specific format.
-// Detectors are used during auto-detection to identify the input format.
-type Detector interface {
-	// Detect analyzes the given bytes and returns a confidence score (0-100).
-	// Higher scores indicate stronger confidence that the data matches this format.
-	// Returns 0 if the data definitely does not match this format.
-	// Returns an error only if detection itself fails (not if format doesn't match).
-	Detect(peek []byte) (confidence int, err error)
 }
 
 // Parser streams documents from input data without loading everything into memory.
