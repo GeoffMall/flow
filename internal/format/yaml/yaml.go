@@ -1,5 +1,5 @@
 // Package yaml implements YAML format support for flow.
-// It provides detection, parsing, and formatting of YAML data with:
+// It provides parsing and formatting of YAML data with:
 //   - Streaming document processing (--- separated documents)
 //   - Normalization to JSON-compatible types
 //   - Pretty-printed output with 2-space indentation
@@ -17,11 +17,6 @@ type Format struct{}
 // Name returns the format identifier.
 func (f *Format) Name() string {
 	return "yaml"
-}
-
-// Detector returns a YAML format detector.
-func (f *Format) Detector() format.Detector {
-	return &Detector{}
 }
 
 // NewParser creates a new YAML streaming parser.

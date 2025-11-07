@@ -1,4 +1,4 @@
-package app
+package runner
 
 import (
 	"bytes"
@@ -157,8 +157,9 @@ user:
 		var out bytes.Buffer
 
 		opts := &cli.Flags{
-			PickPaths: []string{"user.id"},
-			Compact:   true,
+			PickPaths:  []string{"user.id"},
+			Compact:    true,
+			FromFormat: "yaml",
 			// ToFormat empty => json
 		}
 		err := run(in, &out, opts)
@@ -177,6 +178,7 @@ user:
 		opts := &cli.Flags{
 			PickPaths:         []string{"user.id"},
 			Compact:           true,
+			FromFormat:        "yaml",
 			PreserveHierarchy: true,
 			// ToFormat empty => json
 		}

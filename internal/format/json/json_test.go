@@ -9,87 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//nolint:funlen // Test table is intentionally comprehensive
-func TestDetector(t *testing.T) {
-	tests := []struct {
-		name       string
-		input      string
-		wantScore  int
-		wantIsJSON bool
-	}{
-		{
-			name:       "object start",
-			input:      `{"key": "value"}`,
-			wantScore:  100,
-			wantIsJSON: true,
-		},
-		{
-			name:       "array start",
-			input:      `[1, 2, 3]`,
-			wantScore:  100,
-			wantIsJSON: true,
-		},
-		{
-			name:       "empty input",
-			input:      "",
-			wantScore:  80,
-			wantIsJSON: true,
-		},
-		{
-			name:       "whitespace then object",
-			input:      "  \n  {\"key\": \"value\"}",
-			wantScore:  100,
-			wantIsJSON: true,
-		},
-		{
-			name:       "yaml directive",
-			input:      "%YAML 1.2\n---",
-			wantScore:  0,
-			wantIsJSON: false,
-		},
-		{
-			name:       "yaml document separator",
-			input:      "---\nkey: value",
-			wantScore:  0,
-			wantIsJSON: false,
-		},
-		{
-			name:       "yaml style key value",
-			input:      "key: value\nother: thing",
-			wantScore:  0,
-			wantIsJSON: false,
-		},
-		{
-			name:       "negative number",
-			input:      "-123",
-			wantScore:  50,
-			wantIsJSON: true,
-		},
-		{
-			name:       "string value",
-			input:      `"hello"`,
-			wantScore:  50,
-			wantIsJSON: true,
-		},
-	}
-
-	detector := &Detector{}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			score, err := detector.Detect([]byte(tt.input))
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantScore, score)
-
-			if tt.wantIsJSON {
-				assert.Greater(t, score, 0, "should detect as possible JSON")
-			} else {
-				assert.Equal(t, 0, score, "should not detect as JSON")
-			}
-		})
-	}
-}
-
 func TestParser_SingleObject(t *testing.T) {
 	input := `{"name": "Alice", "age": 30}`
 	parser := NewParser(strings.NewReader(input))
@@ -230,12 +149,6 @@ func TestFormat_Integration(t *testing.T) {
 
 	// Test name
 	assert.Equal(t, "json", fmt.Name())
-
-	// Test detector
-	detector := fmt.Detector()
-	score, err := detector.Detect([]byte(`{"test": true}`))
-	assert.NoError(t, err)
-	assert.Equal(t, 100, score)
 
 	// Test parser
 	input := strings.NewReader(`{"test": true}`)

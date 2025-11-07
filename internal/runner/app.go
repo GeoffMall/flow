@@ -1,9 +1,11 @@
-package app
+package runner
 
 import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/GeoffMall/flow/internal/cli"
 	"github.com/GeoffMall/flow/internal/format"
@@ -80,6 +82,26 @@ func buildPipeline(opts *cli.Flags) (*operation.Pipeline, error) {
 	return operation.NewPipeline(ops...), nil
 }
 
+// determineInputFormat determines the input format based on flags and file extension.
+// Priority: explicit -from flag > file extension > default (json)
+func determineInputFormat(opts *cli.Flags) string {
+	// If explicit format specified, use it
+	if opts.FromFormat != "" {
+		return opts.FromFormat
+	}
+
+	// If reading from a file, check extension
+	if opts.InputFile != "" {
+		ext := strings.ToLower(filepath.Ext(opts.InputFile))
+		if ext == ".yaml" || ext == ".yml" {
+			return "yaml"
+		}
+	}
+
+	// Default to JSON
+	return "json"
+}
+
 // run executes one full pass: parse stream -> apply pipeline -> print.
 func run(in io.Reader, out io.Writer, opts *cli.Flags) error {
 	// Build operation pipeline
@@ -88,14 +110,17 @@ func run(in io.Reader, out io.Writer, opts *cli.Flags) error {
 		return err
 	}
 
-	// Auto-detect input format
-	inputFormat, br, err := format.AutoDetect(in)
+	// Determine input format
+	inputFormatName := determineInputFormat(opts)
+
+	// Get input format
+	inputFormat, err := format.Get(inputFormatName)
 	if err != nil {
-		return fmt.Errorf("format detection failed: %w", err)
+		return fmt.Errorf("unknown input format %q: %w", inputFormatName, err)
 	}
 
-	// Create parser for detected format
-	parser, err := inputFormat.NewParser(br)
+	// Create parser
+	parser, err := inputFormat.NewParser(in)
 	if err != nil {
 		return fmt.Errorf("failed to create parser: %w", err)
 	}

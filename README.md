@@ -90,13 +90,13 @@ Here's how `flow` compares to `jq` for common data extraction tasks:
 | **Array element** | `jq '.items[0]'` | `flow -pick items[0]` |
 | **All array items** | `jq '.items[]'` | `flow -pick items[*]` |
 | **Nested array fields** | `jq '.items[].name'` | `flow -pick items[*].name` |
-| **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` |
+| **Convert YAML to JSON** | `yq -o json file.yaml` (requires yq) | `flow -in file.yaml -to json` (YAML input auto-detected from .yaml extension) |
 | **Read from file** | `jq '.' < file.json` or `jq '.' file.json` | `flow -in file.json` |
 
 **Key differences:**
 - **Syntax**: `jq` uses a custom query language; `flow` uses simple CLI flags
 - **Learning curve**: `jq` requires learning its DSL; `flow` is immediately intuitive
-- **Formats**: `jq` is JSON-only (needs `yq` for YAML); `flow` handles both with auto-detection
+- **Formats**: `jq` is JSON-only (needs `yq` for YAML); `flow` handles both (defaults to JSON, detects YAML from .yaml/.yml extensions)
 - **Streaming**: Both support streaming, but `flow` does it by default without special flags
 - **Output**: `flow` now outputs values just like `jq` (e.g., `-pick user.name` returns just `"alice"`, not `{"user": {"name": "alice"}}`)
 
@@ -152,11 +152,29 @@ flow -in config.yaml -delete server.secret
 
 ### Input and Output
 
-`flow` can read from `stdin` or from a file using the `-in` flag. By default, `flow` outputs in the same format as the input. You can specify the output format using the `-to` flag.
+`flow` can read from `stdin` or from a file using the `-in` flag.
+
+**Input Format:**
+- JSON is the default format
+- YAML is automatically detected for files with `.yaml` or `.yml` extensions
+- Use `-from yaml` to explicitly specify YAML input (required when piping YAML from stdin)
+
+**Output Format:**
+- Defaults to JSON
+- Use `-to yaml` to output as YAML
 
 ```bash
-# Read from a file and output as JSON
+# Read YAML file (auto-detected from extension)
+flow -in config.yaml -pick server.port
+
+# Read YAML from stdin (requires -from flag)
+cat config.yaml | flow -from yaml -pick server.port
+
+# Convert YAML to JSON
 flow -in config.yaml -to json
+
+# Convert JSON to YAML
+flow -in data.json -to yaml
 
 # Disable colored output (colors are enabled by default)
 flow -in input.json -no-color
