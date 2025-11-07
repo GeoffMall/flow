@@ -1,9 +1,12 @@
 package avro
 
 import (
+	"bytes"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/GeoffMall/flow/internal/format"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -107,4 +110,32 @@ func TestParser_EarlyReturn(t *testing.T) {
 func TestFormat_Name(t *testing.T) {
 	f := &Format{}
 	assert.Equal(t, "avro", f.Name())
+}
+
+func TestFormat_NewParser_Success(t *testing.T) {
+	f := &Format{}
+	file, err := os.Open("testdata/users.avro")
+	assert.NoError(t, err)
+	defer file.Close()
+
+	parser, err := f.NewParser(file)
+	assert.NoError(t, err)
+	assert.NotNil(t, parser)
+}
+
+func TestFormat_NewParser_Error(t *testing.T) {
+	f := &Format{}
+	r := strings.NewReader("not avro data")
+
+	_, err := f.NewParser(r)
+	assert.Error(t, err)
+}
+
+func TestFormat_NewFormatter_Panics(t *testing.T) {
+	f := &Format{}
+	var buf bytes.Buffer
+
+	assert.Panics(t, func() {
+		_ = f.NewFormatter(&buf, format.FormatterOptions{})
+	}, "NewFormatter should panic as Avro write is not supported")
 }
