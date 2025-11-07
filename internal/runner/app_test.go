@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -235,6 +236,180 @@ func Test_run_EmptyInput(t *testing.T) {
 func Test_run_InvalidYAML(t *testing.T) {
 	opts := &cli.Flags{Compact: true}
 	assertRunFails(t, `invalid: yaml: content: - with bad syntax`, opts)
+}
+
+func Test_processDirectory_Avro_MultipleFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Should process employees1.avro (5 records) + employees2.avro (5 records) + users.avro (3 records) = 13 total
+	// Note: We can't easily capture output from processDirectory since it uses openOutput
+	// This test mainly verifies no errors occur
+}
+
+func Test_processDirectory_Parquet_MultipleFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "parquet",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Should process products1.parquet (5 records) + products2.parquet (5 records) + single.parquet (1 record) = 11 total
+}
+
+func Test_processDirectory_WithWhere_MultipleMatches(t *testing.T) {
+	// This test verifies that WHERE filtering returns multiple matching records across multiple files
+	// Using a temporary output file to capture results
+	tmpFile := "../../testdata/dir-test/test-output.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		WherePairs: []string{"department=Engineering"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Read the output file and verify multiple matches
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 5 Engineering employees total:
+	// - Alice Johnson (employees1.avro, row 1)
+	// - Bob Smith (employees1.avro, row 2)
+	// - Eve Davis (employees1.avro, row 5)
+	// - Grace Lee (employees2.avro, row 2)
+	// - Jack Anderson (employees2.avro, row 5)
+	assert.Equal(t, 5, len(lines), "should return 5 Engineering employees")
+
+	// Verify all lines contain department=Engineering
+	for _, line := range lines {
+		assert.Contains(t, line, `"department":"Engineering"`)
+		assert.Contains(t, line, `"_file"`)
+		assert.Contains(t, line, `"_row"`)
+		assert.Contains(t, line, `"data"`)
+	}
+
+	// Verify we have results from both files
+	assert.Contains(t, output, "employees1.avro")
+	assert.Contains(t, output, "employees2.avro")
+}
+
+func Test_processDirectory_Parquet_WithWhere_MultipleMatches(t *testing.T) {
+	tmpFile := "../../testdata/dir-test/test-parquet-output.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "parquet",
+		WherePairs: []string{"category=Electronics"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 7 Electronics products total across products1.parquet and products2.parquet
+	assert.GreaterOrEqual(t, len(lines), 7, "should return at least 7 Electronics products")
+
+	// Verify all lines contain category=Electronics
+	for _, line := range lines {
+		assert.Contains(t, line, `"category":"Electronics"`)
+	}
+
+	// Verify we have results from both files
+	assert.Contains(t, output, "products1.parquet")
+	assert.Contains(t, output, "products2.parquet")
+}
+
+func Test_processDirectory_WithMultipleWhereConditions(t *testing.T) {
+	tmpFile := "../../testdata/dir-test/test-multi-where.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		WherePairs: []string{"department=Engineering", "active=true"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 5 active Engineering employees
+	assert.Equal(t, 5, len(lines), "should return 5 active Engineering employees")
+
+	// Verify all lines match both conditions
+	for _, line := range lines {
+		assert.Contains(t, line, `"department":"Engineering"`)
+		assert.Contains(t, line, `"active":true`)
+	}
+}
+
+func Test_processDirectory_NoMatchingFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	// Should succeed but warn about no matching files (warning goes to stderr)
+	assert.NoError(t, err)
+}
+
+func Test_processDirectory_InvalidDirectory(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/nonexistent",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.Error(t, err)
 }
 
 //nolint:funlen // Table-driven test covering comprehensive JSON data types
