@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 
@@ -235,6 +236,554 @@ func Test_run_EmptyInput(t *testing.T) {
 func Test_run_InvalidYAML(t *testing.T) {
 	opts := &cli.Flags{Compact: true}
 	assertRunFails(t, `invalid: yaml: content: - with bad syntax`, opts)
+}
+
+func Test_processDirectory_Avro_MultipleFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Should process employees1.avro (5 records) + employees2.avro (5 records) + users.avro (3 records) = 13 total
+	// Note: We can't easily capture output from processDirectory since it uses openOutput
+	// This test mainly verifies no errors occur
+}
+
+func Test_processDirectory_Parquet_MultipleFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "parquet",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Should process products1.parquet (5 records) + products2.parquet (5 records) + single.parquet (1 record) = 11 total
+}
+
+func Test_processDirectory_WithWhere_MultipleMatches(t *testing.T) {
+	// This test verifies that WHERE filtering returns multiple matching records across multiple files
+	// Using a temporary output file to capture results
+	tmpFile := "../../testdata/dir-test/test-output.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		WherePairs: []string{"department=Engineering"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	// Read the output file and verify multiple matches
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 5 Engineering employees total:
+	// - Alice Johnson (employees1.avro, row 1)
+	// - Bob Smith (employees1.avro, row 2)
+	// - Eve Davis (employees1.avro, row 5)
+	// - Grace Lee (employees2.avro, row 2)
+	// - Jack Anderson (employees2.avro, row 5)
+	assert.Equal(t, 5, len(lines), "should return 5 Engineering employees")
+
+	// Verify all lines contain department=Engineering
+	for _, line := range lines {
+		assert.Contains(t, line, `"department":"Engineering"`)
+		assert.Contains(t, line, `"_file"`)
+		assert.Contains(t, line, `"_row"`)
+		assert.Contains(t, line, `"data"`)
+	}
+
+	// Verify we have results from both files
+	assert.Contains(t, output, "employees1.avro")
+	assert.Contains(t, output, "employees2.avro")
+}
+
+func Test_processDirectory_Parquet_WithWhere_MultipleMatches(t *testing.T) {
+	tmpFile := "../../testdata/dir-test/test-parquet-output.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "parquet",
+		WherePairs: []string{"category=Electronics"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 7 Electronics products total across products1.parquet and products2.parquet
+	assert.GreaterOrEqual(t, len(lines), 7, "should return at least 7 Electronics products")
+
+	// Verify all lines contain category=Electronics
+	for _, line := range lines {
+		assert.Contains(t, line, `"category":"Electronics"`)
+	}
+
+	// Verify we have results from both files
+	assert.Contains(t, output, "products1.parquet")
+	assert.Contains(t, output, "products2.parquet")
+}
+
+func Test_processDirectory_WithMultipleWhereConditions(t *testing.T) {
+	tmpFile := "../../testdata/dir-test/test-multi-where.json"
+	defer func() {
+		_ = os.Remove(tmpFile)
+	}()
+
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		WherePairs: []string{"department=Engineering", "active=true"},
+		Compact:    true,
+		NoColor:    true,
+		OutputFile: tmpFile,
+	}
+
+	err := processDirectory(opts)
+	assert.NoError(t, err)
+
+	content, err := os.ReadFile(tmpFile)
+	assert.NoError(t, err)
+
+	output := string(content)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+
+	// Should have 5 active Engineering employees
+	assert.Equal(t, 5, len(lines), "should return 5 active Engineering employees")
+
+	// Verify all lines match both conditions
+	for _, line := range lines {
+		assert.Contains(t, line, `"department":"Engineering"`)
+		assert.Contains(t, line, `"active":true`)
+	}
+}
+
+func Test_processDirectory_NoMatchingFiles(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	// Should succeed but warn about no matching files (warning goes to stderr)
+	assert.NoError(t, err)
+}
+
+func Test_processDirectory_InvalidDirectory(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/nonexistent",
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.Error(t, err)
+}
+
+func Test_processDirectory_InvalidFormat(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "unknown-format",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown format")
+}
+
+func Test_processDirectory_OutputFileError(t *testing.T) {
+	opts := &cli.Flags{
+		InputDir:   "../../testdata/dir-test",
+		FromFormat: "avro",
+		OutputFile: "/nonexistent/directory/output.json",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := processDirectory(opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open output")
+}
+
+func Test_run_YAMLToYAML(t *testing.T) {
+	in := strings.NewReader(`name: Alice
+age: 30`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		FromFormat: "yaml",
+		ToFormat:   "yaml",
+	}
+
+	err := run(in, &out, opts)
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "name: Alice")
+	assert.Contains(t, output, "age: 30")
+}
+
+func Test_run_AvroFormat(t *testing.T) {
+	file, err := os.Open("../../testdata/dir-test/employees1.avro")
+	assert.NoError(t, err)
+	defer file.Close()
+
+	var out bytes.Buffer
+	opts := &cli.Flags{
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err = run(file, &out, opts)
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "Alice Johnson")
+	assert.Contains(t, output, "Engineering")
+}
+
+func Test_run_ParquetFormat(t *testing.T) {
+	file, err := os.Open("../../testdata/dir-test/products1.parquet")
+	assert.NoError(t, err)
+	defer file.Close()
+
+	var out bytes.Buffer
+	opts := &cli.Flags{
+		FromFormat: "parquet",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err = run(file, &out, opts)
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "Dell XPS 15")
+	assert.Contains(t, output, "Electronics")
+}
+
+func Test_runWithMetadata_AvroFormat(t *testing.T) {
+	file, err := os.Open("../../testdata/dir-test/employees1.avro")
+	assert.NoError(t, err)
+	defer file.Close()
+
+	var out bytes.Buffer
+	opts := &cli.Flags{
+		FromFormat: "avro",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err = runWithMetadata(file, &out, opts, "employees1.avro")
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, `"_file":"employees1.avro"`)
+	assert.Contains(t, output, `"_row":`)
+	assert.Contains(t, output, "Alice Johnson")
+}
+
+func Test_runWithMetadata_ParquetFormat(t *testing.T) {
+	file, err := os.Open("../../testdata/dir-test/products1.parquet")
+	assert.NoError(t, err)
+	defer file.Close()
+
+	var out bytes.Buffer
+	opts := &cli.Flags{
+		FromFormat: "parquet",
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err = runWithMetadata(file, &out, opts, "products1.parquet")
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, `"_file":"products1.parquet"`)
+	assert.Contains(t, output, `"_row":`)
+	assert.Contains(t, output, "Dell XPS 15")
+}
+
+//nolint:funlen // Table-driven test covering comprehensive JSON data types
+func Test_determineInputFormat(t *testing.T) {
+	tests := []struct {
+		name        string
+		opts        *cli.Flags
+		expectedFmt string
+	}{
+		{
+			name:        "explicit_json_flag",
+			opts:        &cli.Flags{FromFormat: "json"},
+			expectedFmt: "json",
+		},
+		{
+			name:        "explicit_yaml_flag",
+			opts:        &cli.Flags{FromFormat: "yaml"},
+			expectedFmt: "yaml",
+		},
+		{
+			name:        "explicit_avro_flag",
+			opts:        &cli.Flags{FromFormat: "avro"},
+			expectedFmt: "avro",
+		},
+		{
+			name:        "explicit_parquet_flag",
+			opts:        &cli.Flags{FromFormat: "parquet"},
+			expectedFmt: "parquet",
+		},
+		{
+			name:        "yaml_extension",
+			opts:        &cli.Flags{InputFile: "config.yaml"},
+			expectedFmt: "yaml",
+		},
+		{
+			name:        "yml_extension",
+			opts:        &cli.Flags{InputFile: "config.yml"},
+			expectedFmt: "yaml",
+		},
+		{
+			name:        "avro_extension",
+			opts:        &cli.Flags{InputFile: "data.avro"},
+			expectedFmt: "avro",
+		},
+		{
+			name:        "parquet_extension",
+			opts:        &cli.Flags{InputFile: "data.parquet"},
+			expectedFmt: "parquet",
+		},
+		{
+			name:        "json_extension",
+			opts:        &cli.Flags{InputFile: "data.json"},
+			expectedFmt: "json",
+		},
+		{
+			name:        "no_extension_defaults_to_json",
+			opts:        &cli.Flags{InputFile: "data"},
+			expectedFmt: "json",
+		},
+		{
+			name:        "no_input_file_defaults_to_json",
+			opts:        &cli.Flags{},
+			expectedFmt: "json",
+		},
+		{
+			name:        "uppercase_yaml_extension",
+			opts:        &cli.Flags{InputFile: "CONFIG.YAML"},
+			expectedFmt: "yaml",
+		},
+		{
+			name:        "explicit_flag_overrides_extension",
+			opts:        &cli.Flags{InputFile: "data.json", FromFormat: "yaml"},
+			expectedFmt: "yaml",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := determineInputFormat(tt.opts)
+			assert.Equal(t, tt.expectedFmt, got)
+		})
+	}
+}
+
+func Test_openInput_Error(t *testing.T) {
+	_, _, err := openInput("/nonexistent/path/to/file.json")
+	assert.Error(t, err)
+}
+
+func Test_openInput_Stdin(t *testing.T) {
+	reader, closeFunc, err := openInput("")
+	assert.NoError(t, err)
+	assert.NotNil(t, reader)
+	assert.NotNil(t, closeFunc)
+	closeFunc() // Should not panic
+}
+
+func Test_openOutput_Error(t *testing.T) {
+	_, _, err := openOutput("/nonexistent/directory/output.json")
+	assert.Error(t, err)
+}
+
+func Test_openOutput_Stdout(t *testing.T) {
+	writer, closeFunc, err := openOutput("")
+	assert.NoError(t, err)
+	assert.NotNil(t, writer)
+	assert.NotNil(t, closeFunc)
+	closeFunc() // Should not panic
+}
+
+func Test_buildPipeline_WithWhere(t *testing.T) {
+	opts := &cli.Flags{
+		WherePairs: []string{"name=Alice", "age=30"},
+	}
+	pipe, err := buildPipeline(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, pipe)
+	assert.False(t, pipe.Empty())
+}
+
+func Test_buildPipeline_Empty(t *testing.T) {
+	opts := &cli.Flags{}
+	pipe, err := buildPipeline(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, pipe)
+	assert.True(t, pipe.Empty())
+}
+
+func Test_buildPipeline_InvalidWhere(t *testing.T) {
+	opts := &cli.Flags{
+		WherePairs: []string{"invalid-no-equals"},
+	}
+	_, err := buildPipeline(opts)
+	assert.Error(t, err)
+}
+
+func Test_run_UnknownInputFormat(t *testing.T) {
+	in := strings.NewReader(`{"test": "data"}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		FromFormat: "unknown-format",
+		Compact:    true,
+	}
+
+	err := run(in, &out, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown input format")
+}
+
+func Test_run_UnknownOutputFormat(t *testing.T) {
+	in := strings.NewReader(`{"test": "data"}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		ToFormat: "unknown-format",
+		Compact:  true,
+	}
+
+	err := run(in, &out, opts)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown output format")
+}
+
+func Test_run_ParserCreationError(t *testing.T) {
+	in := strings.NewReader(`not valid json at all {{{`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		Compact: true,
+	}
+
+	err := run(in, &out, opts)
+	assert.Error(t, err)
+}
+
+func Test_run_WithWhere_FiltersOut(t *testing.T) {
+	in := strings.NewReader(`{"name":"Alice","age":30}
+{"name":"Bob","age":25}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		WherePairs: []string{"name=Alice"},
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := run(in, &out, opts)
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, "Alice")
+	assert.NotContains(t, output, "Bob")
+}
+
+func Test_runWithMetadata_Basic(t *testing.T) {
+	in := strings.NewReader(`{"name":"Alice","age":30}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		Compact: true,
+		NoColor: true,
+	}
+
+	err := runWithMetadata(in, &out, opts, "test.json")
+	assert.NoError(t, err)
+
+	output := out.String()
+	assert.Contains(t, output, `"_file":"test.json"`)
+	assert.Contains(t, output, `"_row":1`)
+	assert.Contains(t, output, `"data"`)
+	assert.Contains(t, output, `"name":"Alice"`)
+}
+
+func Test_runWithMetadata_WithWhere(t *testing.T) {
+	in := strings.NewReader(`{"name":"Alice","age":30}
+{"name":"Bob","age":25}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		WherePairs: []string{"name=Bob"},
+		Compact:    true,
+		NoColor:    true,
+	}
+
+	err := runWithMetadata(in, &out, opts, "users.json")
+	assert.NoError(t, err)
+
+	output := out.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	assert.Equal(t, 1, len(lines), "should only return Bob")
+	assert.Contains(t, output, `"name":"Bob"`)
+	assert.Contains(t, output, `"_row":2`) // Bob is row 2 (even though Alice was filtered)
+}
+
+func Test_runWithMetadata_UnknownFormat(t *testing.T) {
+	in := strings.NewReader(`{"test": "data"}`)
+	var out bytes.Buffer
+
+	opts := &cli.Flags{
+		FromFormat: "unknown-format",
+		Compact:    true,
+	}
+
+	err := runWithMetadata(in, &out, opts, "test.dat")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown input format")
 }
 
 //nolint:funlen // Table-driven test covering comprehensive JSON data types

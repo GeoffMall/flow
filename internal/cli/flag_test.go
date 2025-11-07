@@ -79,3 +79,122 @@ func withArgs(t *testing.T, args []string, fn func()) {
 func resetGlobalFlags() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 }
+
+func TestParseFlags_WithWhere(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--where", "name=Alice",
+		"--where", "age=30",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+
+		wantWhere := []string{"name=Alice", "age=30"}
+		assert.Equal(t, wantWhere, f.WherePairs, "WherePairs should match")
+	})
+}
+
+func TestParseFlags_WithInputDir(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--in-dir", "./testdata",
+		"--from", "avro",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+
+		assert.Equal(t, "./testdata", f.InputDir, "InputDir should match")
+		assert.Equal(t, "avro", f.FromFormat, "FromFormat should match")
+	})
+}
+
+func TestParseFlags_AvroFormat(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--from", "avro",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+		assert.Equal(t, "avro", f.FromFormat)
+	})
+}
+
+func TestParseFlags_ParquetFormat(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--from", "parquet",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+		assert.Equal(t, "parquet", f.FromFormat)
+	})
+}
+
+func TestParseFlags_PreserveHierarchy(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--preserve-hierarchy",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+		assert.True(t, f.PreserveHierarchy)
+	})
+}
+
+func TestParseFlags_YAMLFormat(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--from", "yaml",
+		"--to", "json",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+		assert.Equal(t, "yaml", f.FromFormat)
+		assert.Equal(t, "json", f.ToFormat)
+	})
+}
+
+func TestParseFlags_MultipleOperations(t *testing.T) {
+	resetGlobalFlags()
+
+	args := []string{
+		"--pick", "name",
+		"--set", "status=active",
+		"--delete", "debug",
+		"--where", "type=user",
+	}
+
+	withArgs(t, args, func() {
+		f := ParseFlags()
+		assert.Equal(t, []string{"name"}, f.PickPaths)
+		assert.Equal(t, []string{"status=active"}, f.SetPairs)
+		assert.Equal(t, []string{"debug"}, f.DeletePaths)
+		assert.Equal(t, []string{"type=user"}, f.WherePairs)
+	})
+}
+
+func TestMultiStringFlag_String(t *testing.T) {
+	msf := multiStringFlag{"a", "b", "c"}
+	assert.Equal(t, "a, b, c", msf.String())
+}
+
+func TestMultiStringFlag_Set(t *testing.T) {
+	var msf multiStringFlag
+	err := msf.Set("value1")
+	assert.NoError(t, err)
+	err = msf.Set("value2")
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"value1", "value2"}, []string(msf))
+}
